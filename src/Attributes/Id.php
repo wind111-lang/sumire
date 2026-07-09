@@ -12,6 +12,5 @@ final readonly class Id
     public function __construct(
         public ?string $name = null,
         public bool $generated = true,
-    ) {
-    }
+    ) {}
 }

@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  checks:
+    name: PHP ${{ matrix.php-version }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version:
+          - '8.2'
+          - '8.3'
+          - '8.4'
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: sumire_test
+          MYSQL_ROOT_PASSWORD: secret
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -psecret"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: sumire_test
+          POSTGRES_PASSWORD: secret
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d sumire_test"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          extensions: pdo, pdo_mysql, pdo_pgsql, pdo_sqlite
+          coverage: none
+          tools: composer:v2
+
+      - name: Validate Composer
+        run: composer validate --strict
+
+      - name: Install Dependencies
+        run: composer update --no-interaction --prefer-dist --no-progress
+
+      - name: Run CI Checks
+        run: composer ci
+
+      - name: Run PostgreSQL Integration Test
+        run: composer test:integration
+        env:
+          SUMIRE_DRIVER: pgsql
+          SUMIRE_DSN: pgsql:host=127.0.0.1;port=5432;dbname=sumire_test
+          SUMIRE_USER: postgres
+          SUMIRE_PASSWORD: secret
+
+      - name: Run MySQL Integration Test
+        run: composer test:integration
+        env:
+          SUMIRE_DRIVER: mysql
+          SUMIRE_DSN: mysql:host=127.0.0.1;port=3306;dbname=sumire_test;charset=utf8mb4
+          SUMIRE_USER: root
+          SUMIRE_PASSWORD: secret

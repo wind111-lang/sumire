@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Sumire\Mapping;
 
-use Sumire\Exception\MappingException;
 use ReflectionClass;
+use Sumire\Exception\MappingException;
 
 final class EntityMetadata
 {
@@ -49,7 +49,7 @@ final class EntityMetadata
     {
         return array_values(array_filter(
             $this->properties,
-            static fn (PropertyMapping $mapping): bool => !$mapping->id || !$mapping->generated || $mapping->getValue($entity) !== null,
+            static fn(PropertyMapping $mapping): bool => !$mapping->id || !$mapping->generated || $mapping->getValue($entity) !== null,
         ));
     }
 
@@ -58,7 +58,7 @@ final class EntityMetadata
     {
         return array_values(array_filter(
             $this->properties,
-            static fn (PropertyMapping $mapping): bool => !$mapping->id,
+            static fn(PropertyMapping $mapping): bool => !$mapping->id,
         ));
     }
 

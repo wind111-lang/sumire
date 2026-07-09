@@ -6,6 +6,4 @@ namespace Sumire\Exception;
 
 use RuntimeException;
 
-class SumireException extends RuntimeException
-{
-}
+class SumireException extends RuntimeException {}

@@ -97,7 +97,7 @@ final class EntityManager
         }
 
         return array_map(
-            static fn (array $row): object => $metadata->hydrate($row),
+            static fn(array $row): object => $metadata->hydrate($row),
             $this->connection->fetchAll($sql, $params),
         );
     }
@@ -230,13 +230,13 @@ final class EntityManager
 
     public function transaction(callable $callback): mixed
     {
-        return $this->connection->transaction(fn (): mixed => $callback($this));
+        return $this->connection->transaction(fn(): mixed => $callback($this));
     }
 
     private function selectColumns(EntityMetadata $metadata): string
     {
         return implode(', ', array_map(
-            fn (PropertyMapping $mapping): string => $this->connection->quoteIdentifier($mapping->columnName),
+            fn(PropertyMapping $mapping): string => $this->connection->quoteIdentifier($mapping->columnName),
             $metadata->properties(),
         ));
     }

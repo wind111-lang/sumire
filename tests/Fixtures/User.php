@@ -35,6 +35,11 @@ final class User
         return $this->id;
     }
 
+    public function setIdForTest(?int $id): void
+    {
+        $this->id = $id;
+    }
+
     public function name(): string
     {
         return $this->name;

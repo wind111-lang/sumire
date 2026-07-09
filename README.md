@@ -66,6 +66,15 @@ $found = $orm->repository(User::class)->find(1);
 composer dump-autoload
 composer lint
 composer test
+composer analyse
+composer cs:check
+composer ci
+```
+
+整形を適用する場合は次を実行します。
+
+```bash
+composer cs:fix
 ```
 
 MySQL / PostgreSQL の smoke test は DSN を渡して実行できます。

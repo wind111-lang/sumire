@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Sumire\Mapping;
 
+use ReflectionClass;
+use ReflectionProperty;
 use Sumire\Attributes\Column;
 use Sumire\Attributes\Id;
 use Sumire\Attributes\Table;
 use Sumire\Exception\MappingException;
-use ReflectionClass;
-use ReflectionProperty;
 
 final class MetadataFactory
 {
@@ -40,8 +40,8 @@ final class MetadataFactory
                 continue;
             }
 
-            $columnName = $idAttribute?->name
-                ?? $columnAttribute?->name
+            $columnName = $idAttribute->name
+                ?? $columnAttribute->name
                 ?? $this->toSnakeCase($property->getName());
 
             $mapping = new PropertyMapping(
@@ -49,8 +49,8 @@ final class MetadataFactory
                 columnName: $columnName,
                 property: $property,
                 id: $idAttribute !== null,
-                generated: $idAttribute?->generated ?? false,
-                nullable: $columnAttribute?->nullable ?? false,
+                generated: $idAttribute->generated ?? false,
+                nullable: $columnAttribute->nullable ?? false,
             );
 
             if ($mapping->id) {

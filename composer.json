@@ -14,6 +14,7 @@
     },
     "autoload-dev": {
         "psr-4": {
+            "Sumire\\Tests\\": "tests/",
             "Sumire\\Tests\\Fixtures\\": "tests/Fixtures/"
         }
     },
@@ -21,11 +22,25 @@
         "lint": "find src tests -name '*.php' -print0 | xargs -0 -n1 php -l",
         "test": [
             "@composer dump-autoload --dev --quiet",
-            "php tests/run.php"
+            "vendor/bin/phpunit"
         ],
         "test:integration": [
             "@composer dump-autoload --dev --quiet",
             "php tests/integration.php"
+        ],
+        "analyse": "vendor/bin/phpstan analyse",
+        "cs:check": "vendor/bin/php-cs-fixer check --diff --verbose --using-cache=no --allow-unsupported-php-version=yes",
+        "cs:fix": "vendor/bin/php-cs-fixer fix --diff --verbose --using-cache=no --allow-unsupported-php-version=yes",
+        "ci": [
+            "@lint",
+            "@test",
+            "@analyse",
+            "@cs:check"
         ]
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.5",
+        "phpstan/phpstan": "^2.1",
+        "friendsofphp/php-cs-fixer": "^3.75"
     }
 }

@@ -13,8 +13,7 @@ final readonly class EntityRepository
     public function __construct(
         private EntityManager $entityManager,
         private string $entityClass,
-    ) {
-    }
+    ) {}
 
     /** @return T|null */
     public function find(mixed $id): ?object

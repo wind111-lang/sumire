@@ -16,8 +16,7 @@ final readonly class PropertyMapping
         public bool $id = false,
         public bool $generated = false,
         public bool $nullable = false,
-    ) {
-    }
+    ) {}
 
     public function getValue(object $entity): mixed
     {

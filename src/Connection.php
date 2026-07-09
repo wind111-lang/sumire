@@ -69,7 +69,7 @@ final class Connection
         $escape = $close === ']' ? ']]' : $close . $close;
 
         return implode('.', array_map(
-            static fn (string $part): string => $open . str_replace($close, $escape, $part) . $close,
+            static fn(string $part): string => $open . str_replace($close, $escape, $part) . $close,
             explode('.', $identifier),
         ));
     }
