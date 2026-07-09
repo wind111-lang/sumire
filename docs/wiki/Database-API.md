@@ -112,6 +112,46 @@ Criteria values support:
 | Non-empty array | `column IN (...)` |
 | Empty array | `1 = 0` |
 
+## `paginate()`
+
+```php
+public function paginate(
+    string $entityClass,
+    array $criteria = [],
+    array $orderBy = [],
+    int $limit = 50,
+    int $offset = 0,
+): PaginatedResult
+```
+
+Returns one page of entities plus pagination metadata.
+
+```php
+$page = $database->paginate(
+    User::class,
+    criteria: ['active' => true],
+    orderBy: ['name' => 'ASC'],
+    limit: 20,
+    offset: 40,
+);
+
+$items = $page->items;
+$total = $page->total;
+```
+
+`limit` must be greater than zero. `offset` must be greater than or equal to zero.
+
+`PaginatedResult` exposes:
+
+| Property or method | Description |
+| --- | --- |
+| `$items` | Current page items. |
+| `$total` | Total rows matching the criteria. |
+| `$limit` | Requested page size. |
+| `$offset` | Requested offset. |
+| `hasNextPage()` | Whether another page exists after this one. |
+| `hasPreviousPage()` | Whether a previous page exists before this one. |
+
 ## `persist()`
 
 ```php

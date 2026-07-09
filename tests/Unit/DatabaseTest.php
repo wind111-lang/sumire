@@ -87,6 +87,35 @@ final class DatabaseTest extends TestCase
         self::assertTrue($postgresTrue->active());
     }
 
+    public function testPaginatesRepositoryResults(): void
+    {
+        $this->database->persist(new User('Ada Lovelace', 'ada@example.com'));
+        $this->database->persist(new User('Grace Hopper', 'grace@example.com'));
+        $this->database->persist(new User('Katherine Johnson', 'katherine@example.com'));
+
+        $page = $this->database->repository(User::class)->paginate(
+            orderBy: ['id' => 'ASC'],
+            limit: 2,
+            offset: 1,
+        );
+
+        self::assertSame(3, $page->total);
+        self::assertSame(2, $page->limit);
+        self::assertSame(1, $page->offset);
+        self::assertTrue($page->hasPreviousPage());
+        self::assertFalse($page->hasNextPage());
+        self::assertCount(2, $page->items);
+        self::assertSame('Grace Hopper', $page->items[0]->name());
+        self::assertSame('Katherine Johnson', $page->items[1]->name());
+
+        $activePage = $this->database->paginate(User::class, ['active' => true], ['id' => 'ASC'], 1);
+
+        self::assertSame(3, $activePage->total);
+        self::assertTrue($activePage->hasNextPage());
+        self::assertFalse($activePage->hasPreviousPage());
+        self::assertCount(1, $activePage->items);
+    }
+
     public function testRollsBackFailedTransaction(): void
     {
         $repository = $this->database->repository(User::class);

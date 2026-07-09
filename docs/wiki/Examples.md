@@ -81,6 +81,23 @@ $activeUsers = $users->findBy(
 );
 ```
 
+## Paginate Results
+
+```php
+$page = $database->repository(User::class)->paginate(
+    criteria: ['active' => true],
+    orderBy: ['name' => 'ASC'],
+    limit: 20,
+    offset: 40,
+);
+
+foreach ($page->items as $user) {
+    // Render the current page.
+}
+
+$hasMore = $page->hasNextPage();
+```
+
 ## Query with `IN`
 
 ```php
