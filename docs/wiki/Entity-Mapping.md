@@ -65,13 +65,14 @@ private string $email;
 ### Constructor
 
 ```php
-public function __construct(?string $name = null, bool $nullable = false)
+public function __construct(?string $name = null, bool $nullable = false, ?ColumnType $type = null)
 ```
 
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
 | `$name` | `?string` | `null` | Column name. If omitted, the property name is converted to snake case. |
 | `$nullable` | `bool` | `false` | Documents whether the column can be null. |
+| `$type` | `?ColumnType` | `null` | Optional conversion type for values such as JSON. |
 
 ## Naming Defaults
 
@@ -105,6 +106,38 @@ Boolean casting accepts common database values:
 
 - `1`, `true`, `t`, `on`, `yes` -> `true`
 - `0`, `false`, `f`, `off`, `no`, empty string -> `false`
+
+Sumire also supports these typed values:
+
+| PHP value | Mapping behavior |
+| --- | --- |
+| `DateTimeInterface` properties | Stored as `Y-m-d H:i:s`; hydrated as `DateTimeImmutable` or `DateTime` based on the property type. |
+| Backed enum properties | Stored as the enum backing value; hydrated with `EnumClass::from()`. |
+| `#[Column(type: ColumnType::Json)]` | Stored with `json_encode()`; hydrated with `json_decode()`. |
+
+DateTime and backed enum conversion are inferred from the declared property type.
+
+```php
+use DateTimeImmutable;
+
+#[Column]
+private DateTimeImmutable $createdAt;
+
+#[Column]
+private PostStatus $status;
+```
+
+Use `ColumnType::Json` for JSON columns.
+
+```php
+use Sumire\ColumnType;
+
+/** @var array<string, mixed> */
+#[Column(type: ColumnType::Json)]
+private array $metadata;
+```
+
+Criteria values and entity values both use the same conversion rules, so backed enums and DateTime objects can be passed directly to `findBy()`.
 
 ## Mapping Rules
 

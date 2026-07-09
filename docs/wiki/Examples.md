@@ -102,6 +102,51 @@ $posts = $database->findBy(Post::class, [
 
 This generates an `IS NULL` condition.
 
+## Typed Columns
+
+```php
+use DateTimeImmutable;
+use Sumire\Attributes\Column;
+use Sumire\Attributes\Id;
+use Sumire\Attributes\Table;
+use Sumire\ColumnType;
+
+enum PostStatus: string
+{
+    case Draft = 'draft';
+    case Published = 'published';
+}
+
+#[Table('posts')]
+final class Post
+{
+    #[Id]
+    private ?int $id = null;
+
+    #[Column]
+    private string $title;
+
+    #[Column]
+    private PostStatus $status;
+
+    /** @var array<string, mixed> */
+    #[Column(type: ColumnType::Json)]
+    private array $metadata;
+
+    #[Column]
+    private DateTimeImmutable $createdAt;
+}
+```
+
+Backed enums and DateTime values can be used directly in criteria.
+
+```php
+$posts = $database->repository(Post::class)->findBy([
+    'status' => PostStatus::Published,
+    'createdAt' => new DateTimeImmutable('2026-07-09 12:00:00'),
+]);
+```
+
 ## Update
 
 ```php

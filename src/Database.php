@@ -47,7 +47,7 @@ final class Database
     {
         $metadata = $this->metadataFactory->for($entityClass);
         $idMapping = $metadata->id();
-        $params = ['id' => $id];
+        $params = ['id' => $idMapping->toDatabaseValue($id)];
         $sql = sprintf(
             'SELECT %s FROM %s WHERE %s = :id LIMIT 1',
             $this->selectColumns($metadata),
@@ -152,7 +152,7 @@ final class Database
                 $param = 'p' . $index;
                 $columns[] = $this->connection->quoteIdentifier($mapping->columnName);
                 $placeholders[] = ':' . $param;
-                $params[$param] = $mapping->getValue($entity);
+                $params[$param] = $mapping->getDatabaseValue($entity);
             }
 
             $sql = sprintf(
@@ -196,13 +196,13 @@ final class Database
             return;
         }
 
-        $params = ['id' => $id];
+        $params = ['id' => $idMapping->toDatabaseValue($id)];
         $assignments = [];
 
         foreach ($properties as $index => $mapping) {
             $param = 'p' . $index;
             $assignments[] = sprintf('%s = :%s', $this->connection->quoteIdentifier($mapping->columnName), $param);
-            $params[$param] = $mapping->getValue($entity);
+            $params[$param] = $mapping->getDatabaseValue($entity);
         }
 
         $sql = sprintf(
@@ -231,7 +231,7 @@ final class Database
             $this->connection->quoteIdentifier($idMapping->columnName),
         );
 
-        $this->connection->execute($sql, ['id' => $id]);
+        $this->connection->execute($sql, ['id' => $idMapping->toDatabaseValue($id)]);
     }
 
     public function transaction(callable $callback): mixed
@@ -274,7 +274,7 @@ final class Database
                 foreach (array_values($value) as $index => $item) {
                     $param = 'w' . count($params) . '_' . $index;
                     $placeholders[] = ':' . $param;
-                    $params[$param] = $item;
+                    $params[$param] = $mapping->toDatabaseValue($item);
                 }
 
                 $parts[] = sprintf('%s IN (%s)', $column, implode(', ', $placeholders));
@@ -283,7 +283,7 @@ final class Database
 
             $param = 'w' . count($params);
             $parts[] = sprintf('%s = :%s', $column, $param);
-            $params[$param] = $value;
+            $params[$param] = $mapping->toDatabaseValue($value);
         }
 
         return implode(' AND ', $parts);
