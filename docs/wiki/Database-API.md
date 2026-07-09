@@ -112,6 +112,26 @@ Criteria values support:
 | Non-empty array | `column IN (...)` |
 | Empty array | `1 = 0` |
 
+Criteria keys may include an operator after the field name.
+
+```php
+$users = $database->findBy(User::class, [
+    'id >' => 100,
+    'email LIKE' => '%@example.com',
+    'active !=' => false,
+]);
+```
+
+Supported operators are:
+
+| Operator | Expected value |
+| --- | --- |
+| `=`, `!=`, `<>`, `>`, `>=`, `<`, `<=` | Scalar or `null` for `=` and `!=` |
+| `LIKE`, `NOT LIKE` | Scalar |
+| `IN`, `NOT IN` | Array |
+| `BETWEEN`, `NOT BETWEEN` | Array with exactly two values |
+| `IS NULL`, `IS NOT NULL` | Ignored value, usually `true` |
+
 ## `persist()`
 
 ```php

@@ -65,6 +65,39 @@ final class DatabaseTest extends TestCase
         self::assertNull($repository->find($inactive->id()));
     }
 
+    public function testFindBySupportsCriteriaOperators(): void
+    {
+        $this->database->persist(new User('Ada Lovelace', 'ada@example.com'));
+        $this->database->persist(new User('Grace Hopper', 'grace@example.com', false));
+        $this->database->persist(new User('Katherine Johnson', 'katherine@example.com'));
+
+        $repository = $this->database->repository(User::class);
+
+        $activeUsers = $repository->findBy(['id >' => 1, 'active !=' => false], ['id' => 'ASC']);
+
+        self::assertCount(1, $activeUsers);
+        self::assertSame('Katherine Johnson', $activeUsers[0]->name());
+
+        $matchingNames = $repository->findBy(['name LIKE' => '%e%'], ['id' => 'ASC']);
+
+        self::assertCount(3, $matchingNames);
+
+        $notAda = $repository->findBy(['email NOT IN' => ['ada@example.com']], ['id' => 'ASC']);
+
+        self::assertCount(2, $notAda);
+        self::assertSame('Grace Hopper', $notAda[0]->name());
+
+        $between = $repository->findBy(['id BETWEEN' => [1, 2]], ['id' => 'ASC']);
+
+        self::assertCount(2, $between);
+        self::assertSame('Ada Lovelace', $between[0]->name());
+        self::assertSame('Grace Hopper', $between[1]->name());
+
+        self::assertCount(0, $repository->findBy(['id IN' => []]));
+        self::assertCount(3, $repository->findBy(['id NOT IN' => []]));
+        self::assertCount(3, $repository->findBy(['id IS NOT NULL' => true]));
+    }
+
     public function testHydratesPostgresBooleanStrings(): void
     {
         $metadata = (new MetadataFactory())->for(User::class);
