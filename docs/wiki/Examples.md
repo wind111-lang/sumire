@@ -62,9 +62,9 @@ SQL);
 ```php
 $user = new User('Ada Lovelace', 'ada@example.com');
 
-$database->persist($user);
+$id = $database->insert($user);
 
-echo $user->id();
+echo $id;
 
 $sameUser = $database->find(User::class, $user->id());
 ```
@@ -108,10 +108,10 @@ This generates an `IS NULL` condition.
 $user = $database->repository(User::class)->find(1);
 $user->deactivate();
 
-$database->persist($user);
+$affectedRows = $database->update($user);
 ```
 
-`persist()` updates an entity when its ID is not null.
+`update()` returns the affected row count.
 
 ## Delete
 

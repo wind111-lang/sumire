@@ -65,6 +65,25 @@ final class DatabaseTest extends TestCase
         self::assertNull($repository->find($inactive->id()));
     }
 
+    public function testInsertReturnsIdAndUpdateReturnsAffectedRows(): void
+    {
+        $user = new User('Ada Lovelace', 'ada@example.com');
+
+        $insertedId = $this->database->insert($user);
+
+        self::assertSame(1, $insertedId);
+        self::assertSame(1, $user->id());
+
+        $user->rename('Ada King');
+
+        self::assertSame(1, $this->database->update($user));
+
+        $found = $this->database->find(User::class, $user->id());
+
+        self::assertInstanceOf(User::class, $found);
+        self::assertSame('Ada King', $found->name());
+    }
+
     public function testHydratesPostgresBooleanStrings(): void
     {
         $metadata = (new MetadataFactory())->for(User::class);

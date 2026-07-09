@@ -129,7 +129,7 @@ final class Database
         $this->update($entity);
     }
 
-    public function insert(object $entity): void
+    public function insert(object $entity): mixed
     {
         $metadata = $this->metadataFactory->for($entity::class);
         $properties = $metadata->insertableProperties($entity);
@@ -171,7 +171,7 @@ final class Database
                 $idMapping->setValue($entity, $row[$idMapping->columnName]);
             }
 
-            return;
+            return $idMapping->getValue($entity);
         }
 
         $this->connection->execute($sql, $params);
@@ -179,9 +179,11 @@ final class Database
         if ($idMapping->generated && $idMapping->getValue($entity) === null) {
             $idMapping->setValue($entity, $this->connection->lastInsertId());
         }
+
+        return $idMapping->getValue($entity);
     }
 
-    public function update(object $entity): void
+    public function update(object $entity): int
     {
         $metadata = $this->metadataFactory->for($entity::class);
         $idMapping = $metadata->id();
@@ -193,7 +195,7 @@ final class Database
 
         $properties = $metadata->updatableProperties();
         if ($properties === []) {
-            return;
+            return 0;
         }
 
         $params = ['id' => $id];
@@ -212,7 +214,7 @@ final class Database
             $this->connection->quoteIdentifier($idMapping->columnName),
         );
 
-        $this->connection->execute($sql, $params);
+        return $this->connection->execute($sql, $params);
     }
 
     public function remove(object $entity): void
