@@ -1,0 +1,31 @@
+{
+    "name": "wind111-lang/sumire",
+    "description": "A small PDO mapper for PHP 8.2+.",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "php": ">=8.2",
+        "ext-pdo": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "Sumire\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Sumire\\Tests\\Fixtures\\": "tests/Fixtures/"
+        }
+    },
+    "scripts": {
+        "lint": "find src tests -name '*.php' -print0 | xargs -0 -n1 php -l",
+        "test": [
+            "@composer dump-autoload --dev --quiet",
+            "php tests/run.php"
+        ],
+        "test:integration": [
+            "@composer dump-autoload --dev --quiet",
+            "php tests/integration.php"
+        ]
+    }
+}
