@@ -87,6 +87,22 @@ final class DatabaseTest extends TestCase
         self::assertTrue($postgresTrue->active());
     }
 
+    public function testCountsAndChecksExistence(): void
+    {
+        $this->database->persist(new User('Ada Lovelace', 'ada@example.com'));
+        $this->database->persist(new User('Grace Hopper', 'grace@example.com', false));
+
+        $repository = $this->database->repository(User::class);
+
+        self::assertSame(2, $repository->count());
+        self::assertSame(1, $repository->count(['active' => false]));
+        self::assertTrue($repository->exists(['email' => 'ada@example.com']));
+        self::assertFalse($repository->exists(['email' => 'missing@example.com']));
+
+        self::assertSame(1, $this->database->count(User::class, ['email' => ['ada@example.com', 'missing@example.com']]));
+        self::assertTrue($this->database->exists(User::class));
+    }
+
     public function testRollsBackFailedTransaction(): void
     {
         $repository = $this->database->repository(User::class);

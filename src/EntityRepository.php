@@ -47,6 +47,18 @@ final readonly class EntityRepository
         return $this->findBy();
     }
 
+    /** @param array<string, mixed> $criteria */
+    public function count(array $criteria = []): int
+    {
+        return $this->database->count($this->entityClass, $criteria);
+    }
+
+    /** @param array<string, mixed> $criteria */
+    public function exists(array $criteria = []): bool
+    {
+        return $this->database->exists($this->entityClass, $criteria);
+    }
+
     /** @param T $entity */
     public function save(object $entity): void
     {

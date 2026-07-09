@@ -108,6 +108,53 @@ final class Database
         );
     }
 
+    /**
+     * @param class-string $entityClass
+     * @param array<string, mixed> $criteria
+     */
+    public function count(string $entityClass, array $criteria = []): int
+    {
+        $metadata = $this->metadataFactory->for($entityClass);
+        $params = [];
+        $sql = sprintf(
+            'SELECT COUNT(*) AS %s FROM %s',
+            $this->connection->quoteIdentifier('sumire_count'),
+            $this->connection->quoteIdentifier($metadata->tableName),
+        );
+
+        $where = $this->whereClause($metadata, $criteria, $params);
+        if ($where !== '') {
+            $sql .= ' WHERE ' . $where;
+        }
+
+        $row = $this->connection->fetchOne($sql, $params);
+
+        return (int) ($row['sumire_count'] ?? 0);
+    }
+
+    /**
+     * @param class-string $entityClass
+     * @param array<string, mixed> $criteria
+     */
+    public function exists(string $entityClass, array $criteria = []): bool
+    {
+        $metadata = $this->metadataFactory->for($entityClass);
+        $params = [];
+        $sql = sprintf(
+            'SELECT 1 FROM %s',
+            $this->connection->quoteIdentifier($metadata->tableName),
+        );
+
+        $where = $this->whereClause($metadata, $criteria, $params);
+        if ($where !== '') {
+            $sql .= ' WHERE ' . $where;
+        }
+
+        $sql .= ' LIMIT 1';
+
+        return $this->connection->fetchOne($sql, $params) !== null;
+    }
+
     public function persist(object $entity): void
     {
         $metadata = $this->metadataFactory->for($entity::class);
