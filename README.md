@@ -1,36 +1,43 @@
 # Sumire
 
-PHP 8.2 以降で動く、PDO ベースの小さな mapper です。実行時依存は `ext-pdo` のみです。
+Sumire is a small PDO mapper for PHP 8.2+.
 
-## 機能
+It keeps the runtime surface intentionally small: PDO does the database work, PHP attributes describe your entities, and Sumire provides a light repository and persistence layer on top.
 
-- PHP Attributes による entity 定義
-- PDO を使った `insert` / `update` / `delete` / `find`
-- Criteria 配列による `findBy`
+## Features
+
+- Attribute-based entity mapping
+- `insert`, `update`, `delete`, `find`, and `findBy`
 - Repository API
-- トランザクションヘルパー
-- SQLite / MySQL / PostgreSQL の識別子 quote
-- PostgreSQL の generated id 取得は `INSERT ... RETURNING` を使用
-- PDO の型付き parameter binding
+- Transaction helper
+- SQLite, MySQL, and PostgreSQL identifier quoting
+- PostgreSQL generated IDs via `INSERT ... RETURNING`
+- Typed PDO parameter binding
+- Runtime dependency limited to `ext-pdo`
 
-## 対応データベース
+## Supported Databases
 
-Sumire は PDO の上に薄く乗る設計です。利用するデータベースに応じて、PHP 側に PDO ドライバを入れてください。
+Sumire is a thin layer over PDO. Install the PDO driver for the database you want to use:
 
 - SQLite: `pdo_sqlite`
 - MySQL: `pdo_mysql`
 - PostgreSQL: `pdo_pgsql`
 
-採番 ID は SQLite/MySQL では `PDO::lastInsertId()`、PostgreSQL では `RETURNING` で取得します。
+Generated IDs are read with `PDO::lastInsertId()` on SQLite/MySQL and `RETURNING` on PostgreSQL.
 
-## 例
+## Installation
+
+```bash
+composer require wind111-lang/sumire
+```
+
+## Usage
 
 ```php
 use Sumire\Attributes\Column;
 use Sumire\Attributes\Id;
 use Sumire\Attributes\Table;
-use Sumire\Connection;
-use Sumire\EntityManager;
+use Sumire\Database;
 
 #[Table('users')]
 final class User
@@ -51,16 +58,21 @@ final class User
     }
 }
 
-$pdo = new PDO('sqlite::memory:');
-$orm = new EntityManager(new Connection($pdo));
+$database = Database::connect(new PDO('sqlite::memory:'));
 
 $user = new User('Ada Lovelace', 'ada@example.com');
-$orm->persist($user);
+$database->persist($user);
 
-$found = $orm->repository(User::class)->find(1);
+$found = $database->repository(User::class)->find(1);
 ```
 
-## 開発
+If you need direct access to the low-level wrapper, call `connection()`:
+
+```php
+$database->connection()->execute('CREATE TABLE users (...)');
+```
+
+## Development
 
 ```bash
 composer dump-autoload
@@ -71,13 +83,15 @@ composer cs:check
 composer ci
 ```
 
-整形を適用する場合は次を実行します。
+Apply coding-standard fixes with:
 
 ```bash
 composer cs:fix
 ```
 
-MySQL / PostgreSQL の smoke test は DSN を渡して実行できます。
+## Integration Smoke Tests
+
+MySQL and PostgreSQL smoke tests run against a real database by passing a DSN:
 
 ```bash
 SUMIRE_DRIVER=mysql \

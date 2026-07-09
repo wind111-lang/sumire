@@ -2,8 +2,7 @@
 
 declare(strict_types=1);
 
-use Sumire\Connection;
-use Sumire\EntityManager;
+use Sumire\Database;
 use Sumire\Tests\Fixtures\User;
 
 require __DIR__ . '/../vendor/autoload.php';
@@ -25,9 +24,8 @@ if (!in_array($driver, ['mysql', 'pgsql'], true) || $dsn === '') {
     exit(2);
 }
 
-$pdo = new PDO($dsn, $dbUser, $password);
-$connection = new Connection($pdo);
-$entityManager = new EntityManager($connection);
+$database = Database::connect(new PDO($dsn, $dbUser, $password));
+$connection = $database->connection();
 
 $connection->execute('DROP TABLE IF EXISTS users');
 
@@ -51,10 +49,10 @@ if ($driver === 'pgsql') {
         SQL);
 }
 
-$repository = $entityManager->repository(User::class);
+$repository = $database->repository(User::class);
 
 $user = new User('Ada Lovelace', 'ada.integration@example.com');
-$entityManager->persist($user);
+$database->persist($user);
 
 assert_true($user->id() === 1, sprintf('%s should assign generated id.', $driver));
 
@@ -64,14 +62,14 @@ assert_true($found instanceof User, sprintf('%s should find inserted user.', $dr
 assert_true($found->active() === true, sprintf('%s should hydrate true boolean.', $driver));
 
 $found->deactivate();
-$entityManager->persist($found);
+$database->persist($found);
 
 $inactive = $repository->firstBy(['active' => false]);
 
 assert_true($inactive instanceof User, sprintf('%s should query false boolean criteria.', $driver));
 assert_true($inactive->active() === false, sprintf('%s should hydrate false boolean.', $driver));
 
-$entityManager->remove($inactive);
+$database->remove($inactive);
 
 assert_true($repository->find($user->id()) === null, sprintf('%s should remove entity.', $driver));
 

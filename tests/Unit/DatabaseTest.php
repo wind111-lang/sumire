@@ -7,19 +7,18 @@ namespace Sumire\Tests\Unit;
 use PDO;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Sumire\Connection;
-use Sumire\EntityManager;
+use Sumire\Database;
 use Sumire\Mapping\MetadataFactory;
 use Sumire\Tests\Fixtures\User;
 
-final class EntityManagerTest extends TestCase
+final class DatabaseTest extends TestCase
 {
-    private EntityManager $entityManager;
+    private Database $database;
 
     protected function setUp(): void
     {
-        $connection = new Connection(new PDO('sqlite::memory:'));
-        $this->entityManager = new EntityManager($connection);
+        $this->database = Database::connect(new PDO('sqlite::memory:'));
+        $connection = $this->database->connection();
 
         $connection->execute(<<<'SQL'
             CREATE TABLE users (
@@ -34,11 +33,11 @@ final class EntityManagerTest extends TestCase
     public function testPersistsFindsUpdatesAndRemovesEntity(): void
     {
         $user = new User('Ada Lovelace', 'ada@example.com');
-        $this->entityManager->persist($user);
+        $this->database->persist($user);
 
         self::assertSame(1, $user->id());
 
-        $found = $this->entityManager->find(User::class, $user->id());
+        $found = $this->database->find(User::class, $user->id());
 
         self::assertInstanceOf(User::class, $found);
         self::assertSame('Ada Lovelace', $found->name());
@@ -47,21 +46,21 @@ final class EntityManagerTest extends TestCase
         $found->rename('Ada King');
         $found->changeEmail('ada.king@example.com');
         $found->deactivate();
-        $this->entityManager->persist($found);
+        $this->database->persist($found);
 
-        $repository = $this->entityManager->repository(User::class);
+        $repository = $this->database->repository(User::class);
         $inactive = $repository->firstBy(['active' => false]);
 
         self::assertInstanceOf(User::class, $inactive);
         self::assertSame('ada.king@example.com', $inactive->email());
 
-        $this->entityManager->persist(new User('Grace Hopper', 'grace@example.com'));
+        $this->database->persist(new User('Grace Hopper', 'grace@example.com'));
         $ordered = $repository->findBy([], ['name' => 'DESC'], 1);
 
         self::assertCount(1, $ordered);
         self::assertSame('Grace Hopper', $ordered[0]->name());
 
-        $this->entityManager->remove($inactive);
+        $this->database->remove($inactive);
 
         self::assertNull($repository->find($inactive->id()));
     }
@@ -90,10 +89,10 @@ final class EntityManagerTest extends TestCase
 
     public function testRollsBackFailedTransaction(): void
     {
-        $repository = $this->entityManager->repository(User::class);
+        $repository = $this->database->repository(User::class);
 
         try {
-            $this->entityManager->transaction(function (EntityManager $transactional): void {
+            $this->database->transaction(function (Database $transactional): void {
                 $transactional->persist(new User('Rollback Test', 'rollback@example.com'));
 
                 throw new RuntimeException('rollback');

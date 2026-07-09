@@ -11,14 +11,14 @@ final readonly class EntityRepository
 {
     /** @param class-string<T> $entityClass */
     public function __construct(
-        private EntityManager $entityManager,
+        private Database $database,
         private string $entityClass,
     ) {}
 
     /** @return T|null */
     public function find(mixed $id): ?object
     {
-        return $this->entityManager->find($this->entityClass, $id);
+        return $this->database->find($this->entityClass, $id);
     }
 
     /**
@@ -28,7 +28,7 @@ final readonly class EntityRepository
      */
     public function findBy(array $criteria = [], array $orderBy = [], ?int $limit = null, ?int $offset = null): array
     {
-        return $this->entityManager->findBy($this->entityClass, $criteria, $orderBy, $limit, $offset);
+        return $this->database->findBy($this->entityClass, $criteria, $orderBy, $limit, $offset);
     }
 
     /**
@@ -50,12 +50,12 @@ final readonly class EntityRepository
     /** @param T $entity */
     public function save(object $entity): void
     {
-        $this->entityManager->persist($entity);
+        $this->database->persist($entity);
     }
 
     /** @param T $entity */
     public function remove(object $entity): void
     {
-        $this->entityManager->remove($entity);
+        $this->database->remove($entity);
     }
 }

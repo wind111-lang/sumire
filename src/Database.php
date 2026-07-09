@@ -5,12 +5,13 @@ declare(strict_types=1);
 namespace Sumire;
 
 use InvalidArgumentException;
+use PDO;
 use Sumire\Exception\SumireException;
 use Sumire\Mapping\EntityMetadata;
 use Sumire\Mapping\MetadataFactory;
 use Sumire\Mapping\PropertyMapping;
 
-final class EntityManager
+final class Database
 {
     private MetadataFactory $metadataFactory;
 
@@ -19,6 +20,11 @@ final class EntityManager
         ?MetadataFactory $metadataFactory = null,
     ) {
         $this->metadataFactory = $metadataFactory ?? new MetadataFactory();
+    }
+
+    public static function connect(PDO $pdo, ?MetadataFactory $metadataFactory = null): self
+    {
+        return new self(new Connection($pdo), $metadataFactory);
     }
 
     public function connection(): Connection
