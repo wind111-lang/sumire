@@ -2,28 +2,32 @@
 
 Sumire is a small PDO mapper for PHP 8.2+.
 
-It keeps the runtime surface intentionally small: PDO does the database work, PHP attributes describe your entities, and Sumire provides a light repository and persistence layer on top.
+It keeps the runtime surface intentionally small: PDO handles the database connection, PHP attributes describe your entities, and Sumire provides a light persistence and repository layer on top.
 
-## Features
+```php
+use Sumire\Database;
 
-- Attribute-based entity mapping
-- `insert`, `update`, `delete`, `find`, and `findBy`
-- Repository API
-- Transaction helper
-- SQLite, MySQL, and PostgreSQL identifier quoting
-- PostgreSQL generated IDs via `INSERT ... RETURNING`
-- Typed PDO parameter binding
-- Runtime dependency limited to `ext-pdo`
+$database = Database::connect(new PDO('sqlite::memory:'));
+$database->persist($user);
 
-## Supported Databases
+$found = $database->repository(User::class)->find(1);
+```
 
-Sumire is a thin layer over PDO. Install the PDO driver for the database you want to use:
+## Documentation
 
-- SQLite: `pdo_sqlite`
-- MySQL: `pdo_mysql`
-- PostgreSQL: `pdo_pgsql`
+The main documentation lives in the GitHub Wiki:
 
-Generated IDs are read with `PDO::lastInsertId()` on SQLite/MySQL and `RETURNING` on PostgreSQL.
+- [Overview](https://github.com/wind111-lang/sumire/wiki)
+- [Getting Started](https://github.com/wind111-lang/sumire/wiki/Getting-Started)
+- [Entity Mapping](https://github.com/wind111-lang/sumire/wiki/Entity-Mapping)
+- [Database API](https://github.com/wind111-lang/sumire/wiki/Database-API)
+- [Repository API](https://github.com/wind111-lang/sumire/wiki/Repository-API)
+- [Connection API](https://github.com/wind111-lang/sumire/wiki/Connection-API)
+- [Examples](https://github.com/wind111-lang/sumire/wiki/Examples)
+- [Database Notes](https://github.com/wind111-lang/sumire/wiki/Database-Notes)
+- [Development](https://github.com/wind111-lang/sumire/wiki/Development)
+
+The Wiki source is mirrored in [`docs/wiki`](docs/wiki) so changes can be reviewed through pull requests.
 
 ## Installation
 
@@ -31,78 +35,20 @@ Generated IDs are read with `PDO::lastInsertId()` on SQLite/MySQL and `RETURNING
 composer require wind111-lang/sumire
 ```
 
-## Usage
+## Requirements
 
-```php
-use Sumire\Attributes\Column;
-use Sumire\Attributes\Id;
-use Sumire\Attributes\Table;
-use Sumire\Database;
-
-#[Table('users')]
-final class User
-{
-    #[Id]
-    private ?int $id = null;
-
-    #[Column]
-    private string $name;
-
-    #[Column]
-    private string $email;
-
-    public function __construct(string $name, string $email)
-    {
-        $this->name = $name;
-        $this->email = $email;
-    }
-}
-
-$database = Database::connect(new PDO('sqlite::memory:'));
-
-$user = new User('Ada Lovelace', 'ada@example.com');
-$database->persist($user);
-
-$found = $database->repository(User::class)->find(1);
-```
-
-If you need direct access to the low-level wrapper, call `connection()`:
-
-```php
-$database->connection()->execute('CREATE TABLE users (...)');
-```
+- PHP 8.2+
+- `ext-pdo`
+- One PDO driver for your database:
+  - SQLite: `pdo_sqlite`
+  - MySQL: `pdo_mysql`
+  - PostgreSQL: `pdo_pgsql`
 
 ## Development
 
 ```bash
 composer dump-autoload
-composer lint
-composer test
-composer analyse
-composer cs:check
 composer ci
 ```
 
-Apply coding-standard fixes with:
-
-```bash
-composer cs:fix
-```
-
-## Integration Smoke Tests
-
-MySQL and PostgreSQL smoke tests run against a real database by passing a DSN:
-
-```bash
-SUMIRE_DRIVER=mysql \
-SUMIRE_DSN='mysql:host=127.0.0.1;port=3306;dbname=sumire_test;charset=utf8mb4' \
-SUMIRE_USER=root \
-SUMIRE_PASSWORD=secret \
-composer test:integration
-
-SUMIRE_DRIVER=pgsql \
-SUMIRE_DSN='pgsql:host=127.0.0.1;port=5432;dbname=sumire_test' \
-SUMIRE_USER=postgres \
-SUMIRE_PASSWORD=secret \
-composer test:integration
-```
+For the full local workflow, see [Development](https://github.com/wind111-lang/sumire/wiki/Development).
