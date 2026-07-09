@@ -132,6 +132,28 @@ $database->transaction(function (Database $database): void {
 
 If any statement fails, the transaction is rolled back.
 
+## Nested Transaction with Savepoint
+
+```php
+$database->transaction(function (Database $database): void {
+    $database->persist(new User('Outer Commit', 'outer@example.com'));
+
+    try {
+        $database->transaction(function (Database $database): void {
+            $database->persist(new User('Inner Rollback', 'inner@example.com'));
+
+            throw new RuntimeException('rollback inner work only');
+        });
+    } catch (RuntimeException) {
+        // Only the inner transaction was rolled back.
+    }
+
+    $database->persist(new User('After Inner Rollback', 'after@example.com'));
+});
+```
+
+Nested transactions use database savepoints. A successful inner transaction releases its savepoint, and a failed inner transaction rolls back to its savepoint. The outer transaction remains responsible for the final commit.
+
 ## Raw SQL
 
 ```php

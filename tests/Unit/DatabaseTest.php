@@ -103,4 +103,64 @@ final class DatabaseTest extends TestCase
 
         self::assertNull($repository->firstBy(['email' => 'rollback@example.com']));
     }
+
+    public function testNestedTransactionRollsBackOnlyFailedSavepoint(): void
+    {
+        $repository = $this->database->repository(User::class);
+
+        $this->database->transaction(function (Database $outer) use ($repository): void {
+            $outer->persist(new User('Outer Commit', 'outer@example.com'));
+
+            try {
+                $outer->transaction(function (Database $inner): void {
+                    $inner->persist(new User('Inner Rollback', 'inner.rollback@example.com'));
+
+                    throw new RuntimeException('inner rollback');
+                });
+            } catch (RuntimeException $exception) {
+                self::assertSame('inner rollback', $exception->getMessage());
+            }
+
+            self::assertNull($repository->firstBy(['email' => 'inner.rollback@example.com']));
+
+            $outer->persist(new User('After Inner Rollback', 'after@example.com'));
+        });
+
+        self::assertInstanceOf(User::class, $repository->firstBy(['email' => 'outer@example.com']));
+        self::assertInstanceOf(User::class, $repository->firstBy(['email' => 'after@example.com']));
+        self::assertNull($repository->firstBy(['email' => 'inner.rollback@example.com']));
+    }
+
+    public function testOuterRollbackRollsBackSuccessfulNestedTransaction(): void
+    {
+        $repository = $this->database->repository(User::class);
+
+        try {
+            $this->database->transaction(function (Database $outer): void {
+                $outer->persist(new User('Outer Rollback', 'outer.rollback@example.com'));
+
+                $outer->transaction(function (Database $inner): void {
+                    $inner->persist(new User('Inner Released', 'inner.released@example.com'));
+                });
+
+                throw new RuntimeException('outer rollback');
+            });
+        } catch (RuntimeException $exception) {
+            self::assertSame('outer rollback', $exception->getMessage());
+        }
+
+        self::assertNull($repository->firstBy(['email' => 'outer.rollback@example.com']));
+        self::assertNull($repository->firstBy(['email' => 'inner.released@example.com']));
+    }
+
+    public function testTransactionReturnsCallbackResult(): void
+    {
+        $result = $this->database->transaction(
+            static fn(Database $database): string => $database->transaction(
+                static fn(Database $_database): string => 'nested-result',
+            ),
+        );
+
+        self::assertSame('nested-result', $result);
+    }
 }

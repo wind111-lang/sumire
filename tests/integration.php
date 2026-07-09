@@ -69,6 +69,34 @@ $inactive = $repository->firstBy(['active' => false]);
 assert_true($inactive instanceof User, sprintf('%s should query false boolean criteria.', $driver));
 assert_true($inactive->active() === false, sprintf('%s should hydrate false boolean.', $driver));
 
+$database->transaction(function (Database $outer) use ($repository): void {
+    $outer->persist(new User('Outer Commit', 'outer.integration@example.com'));
+
+    try {
+        $outer->transaction(function (Database $inner): void {
+            $inner->persist(new User('Inner Rollback', 'inner.rollback.integration@example.com'));
+
+            throw new RuntimeException('inner rollback');
+        });
+    } catch (RuntimeException $exception) {
+        assert_true($exception->getMessage() === 'inner rollback', 'Nested transaction should rethrow callback exceptions.');
+    }
+
+    assert_true(
+        $repository->firstBy(['email' => 'inner.rollback.integration@example.com']) === null,
+        'Nested rollback should roll back only to the savepoint.',
+    );
+});
+
+assert_true(
+    $repository->firstBy(['email' => 'outer.integration@example.com']) instanceof User,
+    sprintf('%s should commit the outer transaction after an inner rollback.', $driver),
+);
+assert_true(
+    $repository->firstBy(['email' => 'inner.rollback.integration@example.com']) === null,
+    sprintf('%s should not persist rows rolled back to a savepoint.', $driver),
+);
+
 $database->remove($inactive);
 
 assert_true($repository->find($user->id()) === null, sprintf('%s should remove entity.', $driver));
