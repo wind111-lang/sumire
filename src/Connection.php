@@ -5,11 +5,16 @@ declare(strict_types=1);
 namespace Sumire;
 
 use PDO;
+use PDOException;
 use PDOStatement;
-use Throwable;
+use Sumire\Exception\SumireException;
 
 final class Connection
 {
+    private int $transactionDepth = 0;
+
+    private int $savepointSequence = 0;
+
     public function __construct(
         private readonly PDO $pdo,
     ) {
@@ -76,17 +81,71 @@ final class Connection
 
     public function transaction(callable $callback): mixed
     {
+        if ($this->transactionDepth > 0 || $this->pdo->inTransaction()) {
+            return $this->nestedTransaction($callback);
+        }
+
         $this->pdo->beginTransaction();
+        $this->transactionDepth = 1;
 
         try {
             $result = $callback($this);
+            $this->guardActiveTransaction();
             $this->pdo->commit();
 
             return $result;
-        } catch (Throwable $throwable) {
-            $this->pdo->rollBack();
+        } catch (PDOException $exception) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
 
-            throw $throwable;
+            throw $exception;
+        } finally {
+            $this->transactionDepth = 0;
+        }
+    }
+
+    private function nestedTransaction(callable $callback): mixed
+    {
+        $this->guardActiveTransaction();
+
+        $savepoint = $this->nextSavepointName();
+
+        $this->executeSavepointSql(sprintf('SAVEPOINT %s', $savepoint));
+        ++$this->transactionDepth;
+
+        try {
+            $result = $callback($this);
+            $this->guardActiveTransaction();
+            $this->executeSavepointSql(sprintf('RELEASE SAVEPOINT %s', $savepoint));
+
+            return $result;
+        } catch (PDOException $exception) {
+            if ($this->pdo->inTransaction()) {
+                $this->executeSavepointSql(sprintf('ROLLBACK TO SAVEPOINT %s', $savepoint));
+                $this->executeSavepointSql(sprintf('RELEASE SAVEPOINT %s', $savepoint));
+            }
+
+            throw $exception;
+        } finally {
+            --$this->transactionDepth;
+        }
+    }
+
+    private function nextSavepointName(): string
+    {
+        return 'sumire_savepoint_' . ++$this->savepointSequence;
+    }
+
+    private function executeSavepointSql(string $sql): void
+    {
+        $this->pdo->exec($sql);
+    }
+
+    private function guardActiveTransaction(): void
+    {
+        if (!$this->pdo->inTransaction()) {
+            throw new SumireException('The transaction was closed before the callback returned.');
         }
     }
 
