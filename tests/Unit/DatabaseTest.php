@@ -146,7 +146,8 @@ final class DatabaseTest extends TestCase
         self::assertTrue($activePage->hasNextPage());
         self::assertFalse($activePage->hasPreviousPage());
         self::assertCount(1, $activePage->items);
-      
+    }
+
     public function testPersistsAndHydratesTypedColumns(): void
     {
         $createdAt = new DateTimeImmutable('2026-07-09 12:34:56');
