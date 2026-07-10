@@ -83,6 +83,32 @@ $allUsers = $users->all();
 
 Use this only when the table is small or when you intentionally need all rows.
 
+## `paginate()`
+
+```php
+public function paginate(
+    array $criteria = [],
+    array $orderBy = [],
+    int $limit = 50,
+    int $offset = 0,
+): PaginatedResult
+```
+
+Returns one page of entities plus pagination metadata.
+
+```php
+$page = $users->paginate(
+    criteria: ['active' => true],
+    orderBy: ['name' => 'ASC'],
+    limit: 20,
+    offset: 40,
+);
+
+$page->items;
+$page->total;
+$page->hasNextPage();
+```
+
 ## `save()`
 
 ```php

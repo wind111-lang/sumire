@@ -1,6 +1,6 @@
 {
     "name": "wind111-lang/sumire",
-    "description": "A small PDO mapper for PHP 8.2+.",
+    "description": "A small PDO Mapper for PHP 8.2+.",
     "type": "library",
     "license": "MIT",
     "require": {

@@ -47,7 +47,7 @@ final class Database
     {
         $metadata = $this->metadataFactory->for($entityClass);
         $idMapping = $metadata->id();
-        $params = ['id' => $id];
+        $params = ['id' => $idMapping->toDatabaseValue($id)];
         $sql = sprintf(
             'SELECT %s FROM %s WHERE %s = :id LIMIT 1',
             $this->selectColumns($metadata),
@@ -108,6 +108,29 @@ final class Database
         );
     }
 
+    /**
+     * @param class-string $entityClass
+     * @param array<string, mixed> $criteria
+     * @param array<string, string> $orderBy
+     * @return PaginatedResult<object>
+     */
+    public function paginate(string $entityClass, array $criteria = [], array $orderBy = [], int $limit = 50, int $offset = 0): PaginatedResult
+    {
+        if ($limit < 1) {
+            throw new InvalidArgumentException('Limit must be greater than zero.');
+        }
+
+        if ($offset < 0) {
+            throw new InvalidArgumentException('Offset must be greater than or equal to zero.');
+        }
+
+        $metadata = $this->metadataFactory->for($entityClass);
+        $items = $this->findBy($entityClass, $criteria, $orderBy, $limit, $offset);
+        $total = $this->countByMetadata($metadata, $criteria);
+
+        return new PaginatedResult($items, $total, $limit, $offset);
+    }
+
     public function persist(object $entity): void
     {
         $metadata = $this->metadataFactory->for($entity::class);
@@ -129,7 +152,7 @@ final class Database
         $this->update($entity);
     }
 
-    public function insert(object $entity): void
+    public function insert(object $entity): mixed
     {
         $metadata = $this->metadataFactory->for($entity::class);
         $properties = $metadata->insertableProperties($entity);
@@ -152,7 +175,7 @@ final class Database
                 $param = 'p' . $index;
                 $columns[] = $this->connection->quoteIdentifier($mapping->columnName);
                 $placeholders[] = ':' . $param;
-                $params[$param] = $mapping->getValue($entity);
+                $params[$param] = $mapping->getDatabaseValue($entity);
             }
 
             $sql = sprintf(
@@ -171,7 +194,7 @@ final class Database
                 $idMapping->setValue($entity, $row[$idMapping->columnName]);
             }
 
-            return;
+            return $idMapping->getValue($entity);
         }
 
         $this->connection->execute($sql, $params);
@@ -179,9 +202,11 @@ final class Database
         if ($idMapping->generated && $idMapping->getValue($entity) === null) {
             $idMapping->setValue($entity, $this->connection->lastInsertId());
         }
+
+        return $idMapping->getValue($entity);
     }
 
-    public function update(object $entity): void
+    public function update(object $entity): int
     {
         $metadata = $this->metadataFactory->for($entity::class);
         $idMapping = $metadata->id();
@@ -193,16 +218,16 @@ final class Database
 
         $properties = $metadata->updatableProperties();
         if ($properties === []) {
-            return;
+            return 0;
         }
 
-        $params = ['id' => $id];
+        $params = ['id' => $idMapping->toDatabaseValue($id)];
         $assignments = [];
 
         foreach ($properties as $index => $mapping) {
             $param = 'p' . $index;
             $assignments[] = sprintf('%s = :%s', $this->connection->quoteIdentifier($mapping->columnName), $param);
-            $params[$param] = $mapping->getValue($entity);
+            $params[$param] = $mapping->getDatabaseValue($entity);
         }
 
         $sql = sprintf(
@@ -212,7 +237,7 @@ final class Database
             $this->connection->quoteIdentifier($idMapping->columnName),
         );
 
-        $this->connection->execute($sql, $params);
+        return $this->connection->execute($sql, $params);
     }
 
     public function remove(object $entity): void
@@ -231,7 +256,7 @@ final class Database
             $this->connection->quoteIdentifier($idMapping->columnName),
         );
 
-        $this->connection->execute($sql, ['id' => $id]);
+        $this->connection->execute($sql, ['id' => $idMapping->toDatabaseValue($id)]);
     }
 
     public function transaction(callable $callback): mixed
@@ -270,7 +295,7 @@ final class Database
                 continue;
             }
 
-            $parts[] = $this->criterionExpression($column, $operator, $value, $params);
+            $parts[] = $this->criterionExpression($mapping, $column, $operator, $value, $params);
         }
 
         return implode(' AND ', $parts);
@@ -295,7 +320,7 @@ final class Database
     /**
      * @param array<string, mixed> $params
      */
-    private function criterionExpression(string $column, string $operator, mixed $value, array &$params): string
+    private function criterionExpression(PropertyMapping $mapping, string $column, string $operator, mixed $value, array &$params): string
     {
         if ($value === null) {
             return match ($operator) {
@@ -306,15 +331,15 @@ final class Database
         }
 
         if ($operator === 'IN' || $operator === '=' && is_array($value)) {
-            return $this->listExpression($column, 'IN', $value, $params);
+            return $this->listExpression($mapping, $column, 'IN', $value, $params);
         }
 
         if ($operator === 'NOT IN' || $operator === '!=' && is_array($value)) {
-            return $this->listExpression($column, 'NOT IN', $value, $params);
+            return $this->listExpression($mapping, $column, 'NOT IN', $value, $params);
         }
 
         if ($operator === 'BETWEEN' || $operator === 'NOT BETWEEN') {
-            return $this->betweenExpression($column, $operator, $value, $params);
+            return $this->betweenExpression($mapping, $column, $operator, $value, $params);
         }
 
         if (is_array($value)) {
@@ -330,7 +355,7 @@ final class Database
         };
 
         $param = 'w' . count($params);
-        $params[$param] = $value;
+        $params[$param] = $mapping->toDatabaseValue($value);
 
         return sprintf('%s %s :%s', $column, $sqlOperator, $param);
     }
@@ -339,7 +364,7 @@ final class Database
      * @param mixed $value
      * @param array<string, mixed> $params
      */
-    private function listExpression(string $column, string $operator, mixed $value, array &$params): string
+    private function listExpression(PropertyMapping $mapping, string $column, string $operator, mixed $value, array &$params): string
     {
         if (!is_array($value)) {
             throw new InvalidArgumentException(sprintf('Operator "%s" requires an array value.', $operator));
@@ -353,7 +378,7 @@ final class Database
         foreach (array_values($value) as $index => $item) {
             $param = 'w' . count($params) . '_' . $index;
             $placeholders[] = ':' . $param;
-            $params[$param] = $item;
+            $params[$param] = $mapping->toDatabaseValue($item);
         }
 
         return sprintf('%s %s (%s)', $column, $operator, implode(', ', $placeholders));
@@ -363,7 +388,7 @@ final class Database
      * @param mixed $value
      * @param array<string, mixed> $params
      */
-    private function betweenExpression(string $column, string $operator, mixed $value, array &$params): string
+    private function betweenExpression(PropertyMapping $mapping, string $column, string $operator, mixed $value, array &$params): string
     {
         if (!is_array($value) || count($value) !== 2) {
             throw new InvalidArgumentException(sprintf('Operator "%s" requires exactly two values.', $operator));
@@ -372,10 +397,32 @@ final class Database
         $values = array_values($value);
         $start = 'w' . count($params) . '_start';
         $end = 'w' . count($params) . '_end';
-        $params[$start] = $values[0];
-        $params[$end] = $values[1];
+        $params[$start] = $mapping->toDatabaseValue($values[0]);
+        $params[$end] = $mapping->toDatabaseValue($values[1]);
 
         return sprintf('%s %s :%s AND :%s', $column, $operator, $start, $end);
+    }
+
+    /**
+     * @param array<string, mixed> $criteria
+     */
+    private function countByMetadata(EntityMetadata $metadata, array $criteria): int
+    {
+        $params = [];
+        $sql = sprintf(
+            'SELECT COUNT(*) AS %s FROM %s',
+            $this->connection->quoteIdentifier('sumire_count'),
+            $this->connection->quoteIdentifier($metadata->tableName),
+        );
+
+        $where = $this->whereClause($metadata, $criteria, $params);
+        if ($where !== '') {
+            $sql .= ' WHERE ' . $where;
+        }
+
+        $row = $this->connection->fetchOne($sql, $params);
+
+        return (int) ($row['sumire_count'] ?? 0);
     }
 
     /** @param array<string, string> $orderBy */
