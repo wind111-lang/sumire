@@ -115,21 +115,8 @@ final class Database
     public function count(string $entityClass, array $criteria = []): int
     {
         $metadata = $this->metadataFactory->for($entityClass);
-        $params = [];
-        $sql = sprintf(
-            'SELECT COUNT(*) AS %s FROM %s',
-            $this->connection->quoteIdentifier('sumire_count'),
-            $this->connection->quoteIdentifier($metadata->tableName),
-        );
 
-        $where = $this->whereClause($metadata, $criteria, $params);
-        if ($where !== '') {
-            $sql .= ' WHERE ' . $where;
-        }
-
-        $row = $this->connection->fetchOne($sql, $params);
-
-        return (int) ($row['sumire_count'] ?? 0);
+        return $this->countByMetadata($metadata, $criteria);
     }
 
     /**
@@ -153,6 +140,29 @@ final class Database
         $sql .= ' LIMIT 1';
 
         return $this->connection->fetchOne($sql, $params) !== null;
+    }
+
+    /**
+     * @param class-string $entityClass
+     * @param array<string, mixed> $criteria
+     * @param array<string, string> $orderBy
+     * @return PaginatedResult<object>
+     */
+    public function paginate(string $entityClass, array $criteria = [], array $orderBy = [], int $limit = 50, int $offset = 0): PaginatedResult
+    {
+        if ($limit < 1) {
+            throw new InvalidArgumentException('Limit must be greater than zero.');
+        }
+
+        if ($offset < 0) {
+            throw new InvalidArgumentException('Offset must be greater than or equal to zero.');
+        }
+
+        $metadata = $this->metadataFactory->for($entityClass);
+        $items = $this->findBy($entityClass, $criteria, $orderBy, $limit, $offset);
+        $total = $this->countByMetadata($metadata, $criteria);
+
+        return new PaginatedResult($items, $total, $limit, $offset);
     }
 
     public function persist(object $entity): void
@@ -336,6 +346,28 @@ final class Database
         }
 
         return implode(' AND ', $parts);
+    }
+
+    /**
+     * @param array<string, mixed> $criteria
+     */
+    private function countByMetadata(EntityMetadata $metadata, array $criteria): int
+    {
+        $params = [];
+        $sql = sprintf(
+            'SELECT COUNT(*) AS %s FROM %s',
+            $this->connection->quoteIdentifier('sumire_count'),
+            $this->connection->quoteIdentifier($metadata->tableName),
+        );
+
+        $where = $this->whereClause($metadata, $criteria, $params);
+        if ($where !== '') {
+            $sql .= ' WHERE ' . $where;
+        }
+
+        $row = $this->connection->fetchOne($sql, $params);
+
+        return (int) ($row['sumire_count'] ?? 0);
     }
 
     /** @param array<string, string> $orderBy */

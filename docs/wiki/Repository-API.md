@@ -97,6 +97,32 @@ if ($users->exists(['email' => 'ada@example.com'])) {
 }
 ```
 
+## `paginate()`
+
+```php
+public function paginate(
+    array $criteria = [],
+    array $orderBy = [],
+    int $limit = 50,
+    int $offset = 0,
+): PaginatedResult
+```
+
+Returns one page of entities plus pagination metadata.
+
+```php
+$page = $users->paginate(
+    criteria: ['active' => true],
+    orderBy: ['name' => 'ASC'],
+    limit: 20,
+    offset: 40,
+);
+
+$page->items;
+$page->total;
+$page->hasNextPage();
+```
+
 ## `save()`
 
 ```php

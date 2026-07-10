@@ -133,6 +133,43 @@ final class DatabaseTest extends TestCase
 
         self::assertSame(1, $this->database->count(User::class, ['email' => ['ada@example.com', 'missing@example.com']]));
         self::assertTrue($this->database->exists(User::class));
+
+        $createdAt = new DateTimeImmutable('2026-07-09 12:34:56');
+        $this->database->persist(new Post('Typed Criteria', PostStatus::Draft, [], $createdAt));
+
+        $posts = $this->database->repository(Post::class);
+
+        self::assertSame(1, $posts->count(['status' => PostStatus::Draft]));
+        self::assertTrue($posts->exists(['createdAt' => $createdAt]));
+    }
+
+    public function testPaginatesRepositoryResults(): void
+    {
+        $this->database->persist(new User('Ada Lovelace', 'ada@example.com'));
+        $this->database->persist(new User('Grace Hopper', 'grace@example.com'));
+        $this->database->persist(new User('Katherine Johnson', 'katherine@example.com'));
+
+        $page = $this->database->repository(User::class)->paginate(
+            orderBy: ['id' => 'ASC'],
+            limit: 2,
+            offset: 1,
+        );
+
+        self::assertSame(3, $page->total);
+        self::assertSame(2, $page->limit);
+        self::assertSame(1, $page->offset);
+        self::assertTrue($page->hasPreviousPage());
+        self::assertFalse($page->hasNextPage());
+        self::assertCount(2, $page->items);
+        self::assertSame('Grace Hopper', $page->items[0]->name());
+        self::assertSame('Katherine Johnson', $page->items[1]->name());
+
+        $activePage = $this->database->paginate(User::class, ['active' => true], ['id' => 'ASC'], 1);
+
+        self::assertSame(3, $activePage->total);
+        self::assertTrue($activePage->hasNextPage());
+        self::assertFalse($activePage->hasPreviousPage());
+        self::assertCount(1, $activePage->items);
     }
 
     public function testPersistsAndHydratesTypedColumns(): void

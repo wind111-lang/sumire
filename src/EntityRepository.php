@@ -59,6 +59,16 @@ final readonly class EntityRepository
         return $this->database->exists($this->entityClass, $criteria);
     }
 
+    /**
+     * @param array<string, mixed> $criteria
+     * @param array<string, string> $orderBy
+     * @return PaginatedResult<object>
+     */
+    public function paginate(array $criteria = [], array $orderBy = [], int $limit = 50, int $offset = 0): PaginatedResult
+    {
+        return $this->database->paginate($this->entityClass, $criteria, $orderBy, $limit, $offset);
+    }
+
     /** @param T $entity */
     public function save(object $entity): void
     {
