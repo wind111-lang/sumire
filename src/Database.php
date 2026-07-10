@@ -47,7 +47,7 @@ final class Database
     {
         $metadata = $this->metadataFactory->for($entityClass);
         $idMapping = $metadata->id();
-        $params = ['id' => $id];
+        $params = ['id' => $idMapping->toDatabaseValue($id)];
         $sql = sprintf(
             'SELECT %s FROM %s WHERE %s = :id LIMIT 1',
             $this->selectColumns($metadata),
@@ -108,6 +108,29 @@ final class Database
         );
     }
 
+    /**
+     * @param class-string $entityClass
+     * @param array<string, mixed> $criteria
+     * @param array<string, string> $orderBy
+     * @return PaginatedResult<object>
+     */
+    public function paginate(string $entityClass, array $criteria = [], array $orderBy = [], int $limit = 50, int $offset = 0): PaginatedResult
+    {
+        if ($limit < 1) {
+            throw new InvalidArgumentException('Limit must be greater than zero.');
+        }
+
+        if ($offset < 0) {
+            throw new InvalidArgumentException('Offset must be greater than or equal to zero.');
+        }
+
+        $metadata = $this->metadataFactory->for($entityClass);
+        $items = $this->findBy($entityClass, $criteria, $orderBy, $limit, $offset);
+        $total = $this->countByMetadata($metadata, $criteria);
+
+        return new PaginatedResult($items, $total, $limit, $offset);
+    }
+
     public function persist(object $entity): void
     {
         $metadata = $this->metadataFactory->for($entity::class);
@@ -129,7 +152,7 @@ final class Database
         $this->update($entity);
     }
 
-    public function insert(object $entity): void
+    public function insert(object $entity): mixed
     {
         $metadata = $this->metadataFactory->for($entity::class);
         $properties = $metadata->insertableProperties($entity);
@@ -152,7 +175,7 @@ final class Database
                 $param = 'p' . $index;
                 $columns[] = $this->connection->quoteIdentifier($mapping->columnName);
                 $placeholders[] = ':' . $param;
-                $params[$param] = $mapping->getValue($entity);
+                $params[$param] = $mapping->getDatabaseValue($entity);
             }
 
             $sql = sprintf(
@@ -171,7 +194,7 @@ final class Database
                 $idMapping->setValue($entity, $row[$idMapping->columnName]);
             }
 
-            return;
+            return $idMapping->getValue($entity);
         }
 
         $this->connection->execute($sql, $params);
@@ -179,9 +202,11 @@ final class Database
         if ($idMapping->generated && $idMapping->getValue($entity) === null) {
             $idMapping->setValue($entity, $this->connection->lastInsertId());
         }
+
+        return $idMapping->getValue($entity);
     }
 
-    public function update(object $entity): void
+    public function update(object $entity): int
     {
         $metadata = $this->metadataFactory->for($entity::class);
         $idMapping = $metadata->id();
@@ -193,16 +218,16 @@ final class Database
 
         $properties = $metadata->updatableProperties();
         if ($properties === []) {
-            return;
+            return 0;
         }
 
-        $params = ['id' => $id];
+        $params = ['id' => $idMapping->toDatabaseValue($id)];
         $assignments = [];
 
         foreach ($properties as $index => $mapping) {
             $param = 'p' . $index;
             $assignments[] = sprintf('%s = :%s', $this->connection->quoteIdentifier($mapping->columnName), $param);
-            $params[$param] = $mapping->getValue($entity);
+            $params[$param] = $mapping->getDatabaseValue($entity);
         }
 
         $sql = sprintf(
@@ -212,7 +237,7 @@ final class Database
             $this->connection->quoteIdentifier($idMapping->columnName),
         );
 
-        $this->connection->execute($sql, $params);
+        return $this->connection->execute($sql, $params);
     }
 
     public function remove(object $entity): void
@@ -231,7 +256,7 @@ final class Database
             $this->connection->quoteIdentifier($idMapping->columnName),
         );
 
-        $this->connection->execute($sql, ['id' => $id]);
+        $this->connection->execute($sql, ['id' => $idMapping->toDatabaseValue($id)]);
     }
 
     public function transaction(callable $callback): mixed
@@ -274,7 +299,7 @@ final class Database
                 foreach (array_values($value) as $index => $item) {
                     $param = 'w' . count($params) . '_' . $index;
                     $placeholders[] = ':' . $param;
-                    $params[$param] = $item;
+                    $params[$param] = $mapping->toDatabaseValue($item);
                 }
 
                 $parts[] = sprintf('%s IN (%s)', $column, implode(', ', $placeholders));
@@ -283,10 +308,32 @@ final class Database
 
             $param = 'w' . count($params);
             $parts[] = sprintf('%s = :%s', $column, $param);
-            $params[$param] = $value;
+            $params[$param] = $mapping->toDatabaseValue($value);
         }
 
         return implode(' AND ', $parts);
+    }
+
+    /**
+     * @param array<string, mixed> $criteria
+     */
+    private function countByMetadata(EntityMetadata $metadata, array $criteria): int
+    {
+        $params = [];
+        $sql = sprintf(
+            'SELECT COUNT(*) AS %s FROM %s',
+            $this->connection->quoteIdentifier('sumire_count'),
+            $this->connection->quoteIdentifier($metadata->tableName),
+        );
+
+        $where = $this->whereClause($metadata, $criteria, $params);
+        if ($where !== '') {
+            $sql .= ' WHERE ' . $where;
+        }
+
+        $row = $this->connection->fetchOne($sql, $params);
+
+        return (int) ($row['sumire_count'] ?? 0);
     }
 
     /** @param array<string, string> $orderBy */
