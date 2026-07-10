@@ -43,6 +43,18 @@ $activeUsers = $users->findBy(
 );
 ```
 
+Criteria keys can include SQL-style operators:
+
+```php
+$users->findBy([
+    'id >=' => 100,
+    'email LIKE' => '%@example.com',
+    'active !=' => false,
+]);
+```
+
+Supported operators are `=`, `!=`, `<>`, `>`, `>=`, `<`, `<=`, `LIKE`, `NOT LIKE`, `IN`, `NOT IN`, `BETWEEN`, `NOT BETWEEN`, `IS NULL`, and `IS NOT NULL`.
+
 ## `firstBy()`
 
 ```php

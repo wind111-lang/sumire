@@ -315,37 +315,126 @@ final class Database
         $parts = [];
 
         foreach ($criteria as $field => $value) {
-            $mapping = $metadata->mappingForField((string) $field);
+            [$fieldName, $operator] = $this->parseCriterion((string) $field);
+            $mapping = $metadata->mappingForField($fieldName);
             $column = $this->connection->quoteIdentifier($mapping->columnName);
 
-            if ($value === null) {
+            if ($operator === 'IS NULL') {
                 $parts[] = $column . ' IS NULL';
                 continue;
             }
 
-            if (is_array($value)) {
-                if ($value === []) {
-                    $parts[] = '1 = 0';
-                    continue;
-                }
-
-                $placeholders = [];
-                foreach (array_values($value) as $index => $item) {
-                    $param = 'w' . count($params) . '_' . $index;
-                    $placeholders[] = ':' . $param;
-                    $params[$param] = $mapping->toDatabaseValue($item);
-                }
-
-                $parts[] = sprintf('%s IN (%s)', $column, implode(', ', $placeholders));
+            if ($operator === 'IS NOT NULL') {
+                $parts[] = $column . ' IS NOT NULL';
                 continue;
             }
 
-            $param = 'w' . count($params);
-            $parts[] = sprintf('%s = :%s', $column, $param);
-            $params[$param] = $mapping->toDatabaseValue($value);
+            $parts[] = $this->criterionExpression($mapping, $column, $operator, $value, $params);
         }
 
         return implode(' AND ', $parts);
+    }
+
+    /** @return array{0: string, 1: string} */
+    private function parseCriterion(string $criterion): array
+    {
+        $criterion = trim($criterion);
+
+        if (preg_match('/^(.+?)\s+(IS\s+NOT\s+NULL|IS\s+NULL|NOT\s+BETWEEN|NOT\s+LIKE|NOT\s+IN|BETWEEN|LIKE|IN)$/i', $criterion, $match) === 1) {
+            return [trim($match[1]), strtoupper(preg_replace('/\s+/', ' ', $match[2]) ?? $match[2])];
+        }
+
+        if (preg_match('/^(.+?)\s*(>=|<=|!=|<>|>|<|=)$/', $criterion, $match) === 1) {
+            return [trim($match[1]), $match[2] === '<>' ? '!=' : $match[2]];
+        }
+
+        return [$criterion, '='];
+    }
+
+    /**
+     * @param array<string, mixed> $params
+     */
+    private function criterionExpression(PropertyMapping $mapping, string $column, string $operator, mixed $value, array &$params): string
+    {
+        if ($value === null) {
+            return match ($operator) {
+                '=' => $column . ' IS NULL',
+                '!=' => $column . ' IS NOT NULL',
+                default => throw new InvalidArgumentException(sprintf('Operator "%s" does not support null values.', $operator)),
+            };
+        }
+
+        if ($operator === 'IN' || $operator === '=' && is_array($value)) {
+            return $this->listExpression($mapping, $column, 'IN', $value, $params);
+        }
+
+        if ($operator === 'NOT IN' || $operator === '!=' && is_array($value)) {
+            return $this->listExpression($mapping, $column, 'NOT IN', $value, $params);
+        }
+
+        if ($operator === 'BETWEEN' || $operator === 'NOT BETWEEN') {
+            return $this->betweenExpression($mapping, $column, $operator, $value, $params);
+        }
+
+        if (is_array($value)) {
+            throw new InvalidArgumentException(sprintf('Operator "%s" does not support array values.', $operator));
+        }
+
+        $sqlOperator = match ($operator) {
+            '=' => '=',
+            '!=' => '<>',
+            '>', '>=', '<', '<=', 'LIKE', 'NOT LIKE' => $operator,
+            'IN', 'NOT IN' => throw new InvalidArgumentException(sprintf('Operator "%s" requires an array value.', $operator)),
+            default => throw new InvalidArgumentException(sprintf('Unsupported criteria operator "%s".', $operator)),
+        };
+
+        $param = 'w' . count($params);
+        $params[$param] = $mapping->toDatabaseValue($value);
+
+        return sprintf('%s %s :%s', $column, $sqlOperator, $param);
+    }
+
+    /**
+     * @param mixed $value
+     * @param array<string, mixed> $params
+     */
+    private function listExpression(PropertyMapping $mapping, string $column, string $operator, mixed $value, array &$params): string
+    {
+        if (!is_array($value)) {
+            throw new InvalidArgumentException(sprintf('Operator "%s" requires an array value.', $operator));
+        }
+
+        if ($value === []) {
+            return $operator === 'IN' ? '1 = 0' : '1 = 1';
+        }
+
+        $placeholders = [];
+        foreach (array_values($value) as $index => $item) {
+            $param = 'w' . count($params) . '_' . $index;
+            $placeholders[] = ':' . $param;
+            $params[$param] = $mapping->toDatabaseValue($item);
+        }
+
+        return sprintf('%s %s (%s)', $column, $operator, implode(', ', $placeholders));
+    }
+
+    /**
+     * @param mixed $value
+     * @param array<string, mixed> $params
+     */
+    private function betweenExpression(PropertyMapping $mapping, string $column, string $operator, mixed $value, array &$params): string
+    {
+        if (!is_array($value) || count($value) !== 2) {
+            throw new InvalidArgumentException(sprintf('Operator "%s" requires exactly two values.', $operator));
+        }
+
+        $values = array_values($value);
+        $start = 'w' . count($params) . '_start';
+        $end = 'w' . count($params) . '_end';
+        $params[$start] = $mapping->toDatabaseValue($values[0]);
+        $params[$end] = $mapping->toDatabaseValue($values[1]);
+
+        return sprintf('%s %s :%s AND :%s', $column, $operator, $start, $end);
     }
 
     /**

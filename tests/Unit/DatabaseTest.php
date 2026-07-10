@@ -78,6 +78,50 @@ final class DatabaseTest extends TestCase
         self::assertNull($repository->find($inactive->id()));
     }
 
+    public function testFindBySupportsCriteriaOperators(): void
+    {
+        $this->database->persist(new User('Ada Lovelace', 'ada@example.com'));
+        $this->database->persist(new User('Grace Hopper', 'grace@example.com', false));
+        $this->database->persist(new User('Katherine Johnson', 'katherine@example.com'));
+
+        $repository = $this->database->repository(User::class);
+
+        $activeUsers = $repository->findBy(['id >' => 1, 'active !=' => false], ['id' => 'ASC']);
+
+        self::assertCount(1, $activeUsers);
+        self::assertSame('Katherine Johnson', $activeUsers[0]->name());
+
+        $matchingNames = $repository->findBy(['name LIKE' => '%e%'], ['id' => 'ASC']);
+
+        self::assertCount(3, $matchingNames);
+
+        $notAda = $repository->findBy(['email NOT IN' => ['ada@example.com']], ['id' => 'ASC']);
+
+        self::assertCount(2, $notAda);
+        self::assertSame('Grace Hopper', $notAda[0]->name());
+
+        $between = $repository->findBy(['id BETWEEN' => [1, 2]], ['id' => 'ASC']);
+
+        self::assertCount(2, $between);
+        self::assertSame('Ada Lovelace', $between[0]->name());
+        self::assertSame('Grace Hopper', $between[1]->name());
+
+        self::assertCount(0, $repository->findBy(['id IN' => []]));
+        self::assertCount(3, $repository->findBy(['id NOT IN' => []]));
+        self::assertCount(3, $repository->findBy(['id IS NOT NULL' => true]));
+
+        $createdAt = new DateTimeImmutable('2026-07-09 12:34:56');
+        $this->database->persist(new Post('Typed Criteria', PostStatus::Draft, [], $createdAt));
+
+        $typedPosts = $this->database->repository(Post::class)->findBy([
+            'status IN' => [PostStatus::Draft],
+            'createdAt >=' => $createdAt,
+        ]);
+
+        self::assertCount(1, $typedPosts);
+        self::assertSame('Typed Criteria', $typedPosts[0]->title());
+    }
+
     public function testInsertReturnsIdAndUpdateReturnsAffectedRows(): void
     {
         $user = new User('Ada Lovelace', 'ada@example.com');
@@ -128,7 +172,9 @@ final class DatabaseTest extends TestCase
 
         self::assertSame(2, $repository->count());
         self::assertSame(1, $repository->count(['active' => false]));
+        self::assertSame(1, $repository->count(['id >' => 1]));
         self::assertTrue($repository->exists(['email' => 'ada@example.com']));
+        self::assertTrue($repository->exists(['email LIKE' => '%@example.com']));
         self::assertFalse($repository->exists(['email' => 'missing@example.com']));
 
         self::assertSame(1, $this->database->count(User::class, ['email' => ['ada@example.com', 'missing@example.com']]));

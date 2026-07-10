@@ -109,6 +109,26 @@ $users = $database->repository(User::class)->findBy([
 ]);
 ```
 
+## Query with Operators
+
+```php
+$users = $database->repository(User::class)->findBy([
+    'id >' => 100,
+    'name LIKE' => 'Ada%',
+    'email NOT IN' => [
+        'blocked@example.com',
+    ],
+]);
+```
+
+`BETWEEN` accepts exactly two values.
+
+```php
+$users = $database->repository(User::class)->findBy([
+    'id BETWEEN' => [100, 200],
+]);
+```
+
 ## Query for Null
 
 ```php
@@ -118,6 +138,14 @@ $posts = $database->findBy(Post::class, [
 ```
 
 This generates an `IS NULL` condition.
+
+Use `!= null` or `IS NOT NULL` when you need the opposite condition.
+
+```php
+$posts = $database->findBy(Post::class, [
+    'publishedAt !=' => null,
+]);
+```
 
 ## Count and Exists
 
