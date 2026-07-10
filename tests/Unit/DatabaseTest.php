@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Sumire\Tests\Unit;
 
 use PDO;
+use PDOException;
 use PHPUnit\Framework\TestCase;
-use RuntimeException;
 use Sumire\Database;
 use Sumire\Mapping\MetadataFactory;
 use Sumire\Tests\Fixtures\User;
@@ -95,9 +95,9 @@ final class DatabaseTest extends TestCase
             $this->database->transaction(function (Database $transactional): void {
                 $transactional->persist(new User('Rollback Test', 'rollback@example.com'));
 
-                throw new RuntimeException('rollback');
+                throw new PDOException('rollback');
             });
-        } catch (RuntimeException $exception) {
+        } catch (PDOException $exception) {
             self::assertSame('rollback', $exception->getMessage());
         }
 
@@ -115,9 +115,9 @@ final class DatabaseTest extends TestCase
                 $outer->transaction(function (Database $inner): void {
                     $inner->persist(new User('Inner Rollback', 'inner.rollback@example.com'));
 
-                    throw new RuntimeException('inner rollback');
+                    throw new PDOException('inner rollback');
                 });
-            } catch (RuntimeException $exception) {
+            } catch (PDOException $exception) {
                 self::assertSame('inner rollback', $exception->getMessage());
             }
 
@@ -143,9 +143,9 @@ final class DatabaseTest extends TestCase
                     $inner->persist(new User('Inner Released', 'inner.released@example.com'));
                 });
 
-                throw new RuntimeException('outer rollback');
+                throw new PDOException('outer rollback');
             });
-        } catch (RuntimeException $exception) {
+        } catch (PDOException $exception) {
             self::assertSame('outer rollback', $exception->getMessage());
         }
 

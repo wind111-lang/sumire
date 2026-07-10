@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Sumire;
 
 use PDO;
+use PDOException;
 use PDOStatement;
 use Sumire\Exception\SumireException;
-use Throwable;
 
 final class Connection
 {
@@ -94,12 +94,12 @@ final class Connection
             $this->pdo->commit();
 
             return $result;
-        } catch (Throwable $throwable) {
+        } catch (PDOException $exception) {
             if ($this->pdo->inTransaction()) {
                 $this->pdo->rollBack();
             }
 
-            throw $throwable;
+            throw $exception;
         } finally {
             $this->transactionDepth = 0;
         }
@@ -120,13 +120,13 @@ final class Connection
             $this->executeSavepointSql(sprintf('RELEASE SAVEPOINT %s', $savepoint));
 
             return $result;
-        } catch (Throwable $throwable) {
+        } catch (PDOException $exception) {
             if ($this->pdo->inTransaction()) {
                 $this->executeSavepointSql(sprintf('ROLLBACK TO SAVEPOINT %s', $savepoint));
                 $this->executeSavepointSql(sprintf('RELEASE SAVEPOINT %s', $savepoint));
             }
 
-            throw $throwable;
+            throw $exception;
         } finally {
             --$this->transactionDepth;
         }

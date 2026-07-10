@@ -76,9 +76,9 @@ $database->transaction(function (Database $outer) use ($repository): void {
         $outer->transaction(function (Database $inner): void {
             $inner->persist(new User('Inner Rollback', 'inner.rollback.integration@example.com'));
 
-            throw new RuntimeException('inner rollback');
+            throw new PDOException('inner rollback');
         });
-    } catch (RuntimeException $exception) {
+    } catch (PDOException $exception) {
         assert_true($exception->getMessage() === 'inner rollback', 'Nested transaction should rethrow callback exceptions.');
     }
 
