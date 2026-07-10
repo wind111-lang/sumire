@@ -1,6 +1,6 @@
 # Sumire
 
-Sumire is a small PDO mapper for PHP 8.2+.
+Sumire is a small PDO Mapper for PHP 8.2+.
 
 It keeps the runtime surface intentionally small: PDO handles the database connection, PHP attributes describe your entities, and Sumire provides a light persistence and repository layer on top.
 
