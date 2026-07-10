@@ -6,8 +6,8 @@ namespace Sumire\Tests\Unit;
 
 use DateTimeImmutable;
 use PDO;
+use PDOException;
 use PHPUnit\Framework\TestCase;
-use RuntimeException;
 use Sumire\Database;
 use Sumire\Mapping\MetadataFactory;
 use Sumire\Tests\Fixtures\Post;
@@ -163,6 +163,32 @@ final class DatabaseTest extends TestCase
         self::assertTrue($postgresTrue->active());
     }
 
+    public function testCountsAndChecksExistence(): void
+    {
+        $this->database->persist(new User('Ada Lovelace', 'ada@example.com'));
+        $this->database->persist(new User('Grace Hopper', 'grace@example.com', false));
+
+        $repository = $this->database->repository(User::class);
+
+        self::assertSame(2, $repository->count());
+        self::assertSame(1, $repository->count(['active' => false]));
+        self::assertSame(1, $repository->count(['id >' => 1]));
+        self::assertTrue($repository->exists(['email' => 'ada@example.com']));
+        self::assertTrue($repository->exists(['email LIKE' => '%@example.com']));
+        self::assertFalse($repository->exists(['email' => 'missing@example.com']));
+
+        self::assertSame(1, $this->database->count(User::class, ['email' => ['ada@example.com', 'missing@example.com']]));
+        self::assertTrue($this->database->exists(User::class));
+
+        $createdAt = new DateTimeImmutable('2026-07-09 12:34:56');
+        $this->database->persist(new Post('Typed Criteria', PostStatus::Draft, [], $createdAt));
+
+        $posts = $this->database->repository(Post::class);
+
+        self::assertSame(1, $posts->count(['status' => PostStatus::Draft]));
+        self::assertTrue($posts->exists(['createdAt' => $createdAt]));
+    }
+
     public function testPaginatesRepositoryResults(): void
     {
         $this->database->persist(new User('Ada Lovelace', 'ada@example.com'));
@@ -235,12 +261,72 @@ final class DatabaseTest extends TestCase
             $this->database->transaction(function (Database $transactional): void {
                 $transactional->persist(new User('Rollback Test', 'rollback@example.com'));
 
-                throw new RuntimeException('rollback');
+                throw new PDOException('rollback');
             });
-        } catch (RuntimeException $exception) {
+        } catch (PDOException $exception) {
             self::assertSame('rollback', $exception->getMessage());
         }
 
         self::assertNull($repository->firstBy(['email' => 'rollback@example.com']));
+    }
+
+    public function testNestedTransactionRollsBackOnlyFailedSavepoint(): void
+    {
+        $repository = $this->database->repository(User::class);
+
+        $this->database->transaction(function (Database $outer) use ($repository): void {
+            $outer->persist(new User('Outer Commit', 'outer@example.com'));
+
+            try {
+                $outer->transaction(function (Database $inner): void {
+                    $inner->persist(new User('Inner Rollback', 'inner.rollback@example.com'));
+
+                    throw new PDOException('inner rollback');
+                });
+            } catch (PDOException $exception) {
+                self::assertSame('inner rollback', $exception->getMessage());
+            }
+
+            self::assertNull($repository->firstBy(['email' => 'inner.rollback@example.com']));
+
+            $outer->persist(new User('After Inner Rollback', 'after@example.com'));
+        });
+
+        self::assertInstanceOf(User::class, $repository->firstBy(['email' => 'outer@example.com']));
+        self::assertInstanceOf(User::class, $repository->firstBy(['email' => 'after@example.com']));
+        self::assertNull($repository->firstBy(['email' => 'inner.rollback@example.com']));
+    }
+
+    public function testOuterRollbackRollsBackSuccessfulNestedTransaction(): void
+    {
+        $repository = $this->database->repository(User::class);
+
+        try {
+            $this->database->transaction(function (Database $outer): void {
+                $outer->persist(new User('Outer Rollback', 'outer.rollback@example.com'));
+
+                $outer->transaction(function (Database $inner): void {
+                    $inner->persist(new User('Inner Released', 'inner.released@example.com'));
+                });
+
+                throw new PDOException('outer rollback');
+            });
+        } catch (PDOException $exception) {
+            self::assertSame('outer rollback', $exception->getMessage());
+        }
+
+        self::assertNull($repository->firstBy(['email' => 'outer.rollback@example.com']));
+        self::assertNull($repository->firstBy(['email' => 'inner.released@example.com']));
+    }
+
+    public function testTransactionReturnsCallbackResult(): void
+    {
+        $result = $this->database->transaction(
+            static fn(Database $database): string => $database->transaction(
+                static fn(Database $_database): string => 'nested-result',
+            ),
+        );
+
+        self::assertSame('nested-result', $result);
     }
 }

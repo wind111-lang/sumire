@@ -135,3 +135,37 @@ $connection->transaction(function (Connection $connection): void {
 ```
 
 If the callback throws, the transaction is rolled back and the original exception is rethrown.
+
+## Nested Transactions
+
+`Connection::transaction()` supports nested calls with savepoints.
+
+```php
+$connection->transaction(function (Connection $connection): void {
+    $connection->execute('INSERT INTO users (name) VALUES (:name)', [
+        'name' => 'outer',
+    ]);
+
+    try {
+        $connection->transaction(function (Connection $connection): void {
+            $connection->execute('INSERT INTO users (name) VALUES (:name)', [
+                'name' => 'inner',
+            ]);
+
+            throw new RuntimeException('rollback inner work only');
+        });
+    } catch (RuntimeException) {
+        // The outer transaction is still active.
+    }
+});
+```
+
+Behavior:
+
+- The outermost transaction uses `PDO::beginTransaction()`, `commit()`, and `rollBack()`.
+- Nested transactions use `SAVEPOINT`, `RELEASE SAVEPOINT`, and `ROLLBACK TO SAVEPOINT`.
+- A successful nested transaction releases its savepoint; it does not commit the outer transaction.
+- A failed nested transaction rolls back to its savepoint and rethrows the original exception.
+- If the outer transaction fails, all nested work is rolled back too.
+
+Do not manually run `COMMIT` or `ROLLBACK` inside a `transaction()` callback. Sumire expects the callback to leave the transaction open until it returns or throws.

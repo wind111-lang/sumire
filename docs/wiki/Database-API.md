@@ -132,6 +132,34 @@ Supported operators are:
 | `BETWEEN`, `NOT BETWEEN` | Array with exactly two values |
 | `IS NULL`, `IS NOT NULL` | Ignored value, usually `true` |
 
+## `count()`
+
+```php
+public function count(string $entityClass, array $criteria = []): int
+```
+
+Returns the number of rows matching criteria.
+
+```php
+$activeCount = $database->count(User::class, ['active' => true]);
+```
+
+## `exists()`
+
+```php
+public function exists(string $entityClass, array $criteria = []): bool
+```
+
+Returns whether at least one row matches criteria.
+
+```php
+if ($database->exists(User::class, ['email' => 'ada@example.com'])) {
+    // A matching row exists.
+}
+```
+
+`exists()` uses `SELECT 1 ... LIMIT 1`, so it does not count every matching row.
+
 ## `paginate()`
 
 ```php
@@ -251,3 +279,32 @@ $database->transaction(function (Database $database): void {
 ```
 
 If the callback throws, Sumire rolls back and rethrows the original exception.
+
+## Nested Transactions
+
+`Database::transaction()` supports nested calls through `Connection` savepoints.
+
+```php
+$database->transaction(function (Database $database): void {
+    $database->persist(new User('Outer Commit', 'outer@example.com'));
+
+    try {
+        $database->transaction(function (Database $database): void {
+            $database->persist(new User('Inner Rollback', 'inner@example.com'));
+
+            throw new RuntimeException('rollback inner work only');
+        });
+    } catch (RuntimeException) {
+        // The outer transaction can continue.
+    }
+
+    $database->persist(new User('After Inner Rollback', 'after@example.com'));
+});
+```
+
+Behavior:
+
+- The outermost transaction commits only after the outer callback returns.
+- Nested successful callbacks release their savepoint; they do not commit independently.
+- Nested failed callbacks roll back to their savepoint and rethrow.
+- If the outer callback throws, all nested work is rolled back.

@@ -83,6 +83,32 @@ $allUsers = $users->all();
 
 Use this only when the table is small or when you intentionally need all rows.
 
+## `count()`
+
+```php
+public function count(array $criteria = []): int
+```
+
+Returns the number of rows matching criteria.
+
+```php
+$activeCount = $users->count(['active' => true]);
+```
+
+## `exists()`
+
+```php
+public function exists(array $criteria = []): bool
+```
+
+Returns whether at least one row matches criteria.
+
+```php
+if ($users->exists(['email' => 'ada@example.com'])) {
+    // A matching row exists.
+}
+```
+
 ## `paginate()`
 
 ```php

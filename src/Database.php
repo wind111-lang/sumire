@@ -111,6 +111,40 @@ final class Database
     /**
      * @param class-string $entityClass
      * @param array<string, mixed> $criteria
+     */
+    public function count(string $entityClass, array $criteria = []): int
+    {
+        $metadata = $this->metadataFactory->for($entityClass);
+
+        return $this->countByMetadata($metadata, $criteria);
+    }
+
+    /**
+     * @param class-string $entityClass
+     * @param array<string, mixed> $criteria
+     */
+    public function exists(string $entityClass, array $criteria = []): bool
+    {
+        $metadata = $this->metadataFactory->for($entityClass);
+        $params = [];
+        $sql = sprintf(
+            'SELECT 1 FROM %s',
+            $this->connection->quoteIdentifier($metadata->tableName),
+        );
+
+        $where = $this->whereClause($metadata, $criteria, $params);
+        if ($where !== '') {
+            $sql .= ' WHERE ' . $where;
+        }
+
+        $sql .= ' LIMIT 1';
+
+        return $this->connection->fetchOne($sql, $params) !== null;
+    }
+
+    /**
+     * @param class-string $entityClass
+     * @param array<string, mixed> $criteria
      * @param array<string, string> $orderBy
      * @return PaginatedResult<object>
      */
