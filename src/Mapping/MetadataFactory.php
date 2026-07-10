@@ -51,6 +51,7 @@ final class MetadataFactory
                 id: $idAttribute !== null,
                 generated: $idAttribute->generated ?? false,
                 nullable: $columnAttribute->nullable ?? false,
+                type: $columnAttribute->type ?? null,
             );
 
             if ($mapping->id) {
