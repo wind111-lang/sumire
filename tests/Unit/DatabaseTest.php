@@ -133,7 +133,8 @@ final class DatabaseTest extends TestCase
 
         self::assertSame(1, $this->database->count(User::class, ['email' => ['ada@example.com', 'missing@example.com']]));
         self::assertTrue($this->database->exists(User::class));
-      
+    }
+
     public function testPersistsAndHydratesTypedColumns(): void
     {
         $createdAt = new DateTimeImmutable('2026-07-09 12:34:56');
