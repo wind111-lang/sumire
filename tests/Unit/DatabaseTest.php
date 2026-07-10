@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace Sumire\Tests\Unit;
 
+use DateTimeImmutable;
 use PDO;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Sumire\Database;
 use Sumire\Mapping\MetadataFactory;
+use Sumire\Tests\Fixtures\Post;
+use Sumire\Tests\Fixtures\PostStatus;
 use Sumire\Tests\Fixtures\User;
 
 final class DatabaseTest extends TestCase
@@ -26,6 +29,16 @@ final class DatabaseTest extends TestCase
                 name TEXT NOT NULL,
                 email TEXT NOT NULL,
                 active INTEGER NOT NULL
+            )
+            SQL);
+
+        $connection->execute(<<<'SQL'
+            CREATE TABLE posts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                status TEXT NOT NULL,
+                metadata TEXT NOT NULL,
+                created_at TEXT NOT NULL
             )
             SQL);
     }
@@ -63,6 +76,25 @@ final class DatabaseTest extends TestCase
         $this->database->remove($inactive);
 
         self::assertNull($repository->find($inactive->id()));
+    }
+
+    public function testInsertReturnsIdAndUpdateReturnsAffectedRows(): void
+    {
+        $user = new User('Ada Lovelace', 'ada@example.com');
+
+        $insertedId = $this->database->insert($user);
+
+        self::assertSame(1, $insertedId);
+        self::assertSame(1, $user->id());
+
+        $user->rename('Ada King');
+
+        self::assertSame(1, $this->database->update($user));
+
+        $found = $this->database->find(User::class, $user->id());
+
+        self::assertInstanceOf(User::class, $found);
+        self::assertSame('Ada King', $found->name());
     }
 
     public function testHydratesPostgresBooleanStrings(): void
@@ -114,6 +146,40 @@ final class DatabaseTest extends TestCase
         self::assertTrue($activePage->hasNextPage());
         self::assertFalse($activePage->hasPreviousPage());
         self::assertCount(1, $activePage->items);
+      
+    public function testPersistsAndHydratesTypedColumns(): void
+    {
+        $createdAt = new DateTimeImmutable('2026-07-09 12:34:56');
+        $post = new Post(
+            'Typed Columns',
+            PostStatus::Draft,
+            ['tags' => ['sumire', 'php'], 'views' => 10],
+            $createdAt,
+        );
+
+        $this->database->persist($post);
+
+        self::assertSame(1, $post->id());
+
+        $found = $this->database->repository(Post::class)->firstBy([
+            'status' => PostStatus::Draft,
+            'createdAt' => $createdAt,
+        ]);
+
+        self::assertInstanceOf(Post::class, $found);
+        self::assertSame('Typed Columns', $found->title());
+        self::assertSame(PostStatus::Draft, $found->status());
+        self::assertSame(['tags' => ['sumire', 'php'], 'views' => 10], $found->metadata());
+        self::assertSame('2026-07-09 12:34:56', $found->createdAt()->format('Y-m-d H:i:s'));
+
+        $found->revise(PostStatus::Published, ['tags' => ['release'], 'views' => 20]);
+        $this->database->persist($found);
+
+        $published = $this->database->find(Post::class, $post->id());
+
+        self::assertInstanceOf(Post::class, $published);
+        self::assertSame(PostStatus::Published, $published->status());
+        self::assertSame(['tags' => ['release'], 'views' => 20], $published->metadata());
     }
 
     public function testRollsBackFailedTransaction(): void

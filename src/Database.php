@@ -47,7 +47,7 @@ final class Database
     {
         $metadata = $this->metadataFactory->for($entityClass);
         $idMapping = $metadata->id();
-        $params = ['id' => $id];
+        $params = ['id' => $idMapping->toDatabaseValue($id)];
         $sql = sprintf(
             'SELECT %s FROM %s WHERE %s = :id LIMIT 1',
             $this->selectColumns($metadata),
@@ -152,7 +152,7 @@ final class Database
         $this->update($entity);
     }
 
-    public function insert(object $entity): void
+    public function insert(object $entity): mixed
     {
         $metadata = $this->metadataFactory->for($entity::class);
         $properties = $metadata->insertableProperties($entity);
@@ -175,7 +175,7 @@ final class Database
                 $param = 'p' . $index;
                 $columns[] = $this->connection->quoteIdentifier($mapping->columnName);
                 $placeholders[] = ':' . $param;
-                $params[$param] = $mapping->getValue($entity);
+                $params[$param] = $mapping->getDatabaseValue($entity);
             }
 
             $sql = sprintf(
@@ -194,7 +194,7 @@ final class Database
                 $idMapping->setValue($entity, $row[$idMapping->columnName]);
             }
 
-            return;
+            return $idMapping->getValue($entity);
         }
 
         $this->connection->execute($sql, $params);
@@ -202,9 +202,11 @@ final class Database
         if ($idMapping->generated && $idMapping->getValue($entity) === null) {
             $idMapping->setValue($entity, $this->connection->lastInsertId());
         }
+
+        return $idMapping->getValue($entity);
     }
 
-    public function update(object $entity): void
+    public function update(object $entity): int
     {
         $metadata = $this->metadataFactory->for($entity::class);
         $idMapping = $metadata->id();
@@ -216,16 +218,16 @@ final class Database
 
         $properties = $metadata->updatableProperties();
         if ($properties === []) {
-            return;
+            return 0;
         }
 
-        $params = ['id' => $id];
+        $params = ['id' => $idMapping->toDatabaseValue($id)];
         $assignments = [];
 
         foreach ($properties as $index => $mapping) {
             $param = 'p' . $index;
             $assignments[] = sprintf('%s = :%s', $this->connection->quoteIdentifier($mapping->columnName), $param);
-            $params[$param] = $mapping->getValue($entity);
+            $params[$param] = $mapping->getDatabaseValue($entity);
         }
 
         $sql = sprintf(
@@ -235,7 +237,7 @@ final class Database
             $this->connection->quoteIdentifier($idMapping->columnName),
         );
 
-        $this->connection->execute($sql, $params);
+        return $this->connection->execute($sql, $params);
     }
 
     public function remove(object $entity): void
@@ -254,7 +256,7 @@ final class Database
             $this->connection->quoteIdentifier($idMapping->columnName),
         );
 
-        $this->connection->execute($sql, ['id' => $id]);
+        $this->connection->execute($sql, ['id' => $idMapping->toDatabaseValue($id)]);
     }
 
     public function transaction(callable $callback): mixed
@@ -297,7 +299,7 @@ final class Database
                 foreach (array_values($value) as $index => $item) {
                     $param = 'w' . count($params) . '_' . $index;
                     $placeholders[] = ':' . $param;
-                    $params[$param] = $item;
+                    $params[$param] = $mapping->toDatabaseValue($item);
                 }
 
                 $parts[] = sprintf('%s IN (%s)', $column, implode(', ', $placeholders));
@@ -306,7 +308,7 @@ final class Database
 
             $param = 'w' . count($params);
             $parts[] = sprintf('%s = :%s', $column, $param);
-            $params[$param] = $value;
+            $params[$param] = $mapping->toDatabaseValue($value);
         }
 
         return implode(' AND ', $parts);

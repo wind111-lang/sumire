@@ -170,13 +170,13 @@ If the entity has a generated ID and the ID value is `null`, Sumire inserts it. 
 ## `insert()`
 
 ```php
-public function insert(object $entity): void
+public function insert(object $entity): mixed
 ```
 
-Inserts an entity.
+Inserts an entity and returns the entity ID value after insert.
 
 ```php
-$database->insert($user);
+$id = $database->insert($user);
 ```
 
 For generated IDs:
@@ -184,17 +184,19 @@ For generated IDs:
 - SQLite/MySQL use `PDO::lastInsertId()`.
 - PostgreSQL uses `INSERT ... RETURNING`.
 
+When the ID is not generated, `insert()` returns the current mapped ID value.
+
 ## `update()`
 
 ```php
-public function update(object $entity): void
+public function update(object $entity): int
 ```
 
-Updates an entity by its ID.
+Updates an entity by its ID and returns the affected row count.
 
 ```php
 $user->rename('Ada King');
-$database->update($user);
+$affectedRows = $database->update($user);
 ```
 
 Throws `Sumire\Exception\SumireException` when the ID value is `null`.

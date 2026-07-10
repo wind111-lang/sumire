@@ -62,9 +62,9 @@ SQL);
 ```php
 $user = new User('Ada Lovelace', 'ada@example.com');
 
-$database->persist($user);
+$id = $database->insert($user);
 
-echo $user->id();
+echo $id;
 
 $sameUser = $database->find(User::class, $user->id());
 ```
@@ -119,16 +119,61 @@ $posts = $database->findBy(Post::class, [
 
 This generates an `IS NULL` condition.
 
+## Typed Columns
+
+```php
+use DateTimeImmutable;
+use Sumire\Attributes\Column;
+use Sumire\Attributes\Id;
+use Sumire\Attributes\Table;
+use Sumire\ColumnType;
+
+enum PostStatus: string
+{
+    case Draft = 'draft';
+    case Published = 'published';
+}
+
+#[Table('posts')]
+final class Post
+{
+    #[Id]
+    private ?int $id = null;
+
+    #[Column]
+    private string $title;
+
+    #[Column]
+    private PostStatus $status;
+
+    /** @var array<string, mixed> */
+    #[Column(type: ColumnType::Json)]
+    private array $metadata;
+
+    #[Column]
+    private DateTimeImmutable $createdAt;
+}
+```
+
+Backed enums and DateTime values can be used directly in criteria.
+
+```php
+$posts = $database->repository(Post::class)->findBy([
+    'status' => PostStatus::Published,
+    'createdAt' => new DateTimeImmutable('2026-07-09 12:00:00'),
+]);
+```
+
 ## Update
 
 ```php
 $user = $database->repository(User::class)->find(1);
 $user->deactivate();
 
-$database->persist($user);
+$affectedRows = $database->update($user);
 ```
 
-`persist()` updates an entity when its ID is not null.
+`update()` returns the affected row count.
 
 ## Delete
 
