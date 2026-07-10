@@ -119,6 +119,30 @@ final class DatabaseTest extends TestCase
         self::assertTrue($postgresTrue->active());
     }
 
+    public function testCountsAndChecksExistence(): void
+    {
+        $this->database->persist(new User('Ada Lovelace', 'ada@example.com'));
+        $this->database->persist(new User('Grace Hopper', 'grace@example.com', false));
+
+        $repository = $this->database->repository(User::class);
+
+        self::assertSame(2, $repository->count());
+        self::assertSame(1, $repository->count(['active' => false]));
+        self::assertTrue($repository->exists(['email' => 'ada@example.com']));
+        self::assertFalse($repository->exists(['email' => 'missing@example.com']));
+
+        self::assertSame(1, $this->database->count(User::class, ['email' => ['ada@example.com', 'missing@example.com']]));
+        self::assertTrue($this->database->exists(User::class));
+
+        $createdAt = new DateTimeImmutable('2026-07-09 12:34:56');
+        $this->database->persist(new Post('Typed Criteria', PostStatus::Draft, [], $createdAt));
+
+        $posts = $this->database->repository(Post::class);
+
+        self::assertSame(1, $posts->count(['status' => PostStatus::Draft]));
+        self::assertTrue($posts->exists(['createdAt' => $createdAt]));
+    }
+
     public function testPaginatesRepositoryResults(): void
     {
         $this->database->persist(new User('Ada Lovelace', 'ada@example.com'));

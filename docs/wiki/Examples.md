@@ -119,6 +119,15 @@ $posts = $database->findBy(Post::class, [
 
 This generates an `IS NULL` condition.
 
+## Count and Exists
+
+```php
+$users = $database->repository(User::class);
+
+$activeCount = $users->count(['active' => true]);
+$emailTaken = $users->exists(['email' => 'ada@example.com']);
+```
+
 ## Typed Columns
 
 ```php

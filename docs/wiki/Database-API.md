@@ -112,6 +112,34 @@ Criteria values support:
 | Non-empty array | `column IN (...)` |
 | Empty array | `1 = 0` |
 
+## `count()`
+
+```php
+public function count(string $entityClass, array $criteria = []): int
+```
+
+Returns the number of rows matching criteria.
+
+```php
+$activeCount = $database->count(User::class, ['active' => true]);
+```
+
+## `exists()`
+
+```php
+public function exists(string $entityClass, array $criteria = []): bool
+```
+
+Returns whether at least one row matches criteria.
+
+```php
+if ($database->exists(User::class, ['email' => 'ada@example.com'])) {
+    // A matching row exists.
+}
+```
+
+`exists()` uses `SELECT 1 ... LIMIT 1`, so it does not count every matching row.
+
 ## `paginate()`
 
 ```php
