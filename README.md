@@ -2,15 +2,141 @@
 
 Sumire is a small PDO Mapper for PHP 8.2+.
 
-It keeps the runtime surface intentionally small: PDO handles the database connection, PHP attributes describe your entities, and Sumire provides a light persistence and repository layer on top.
+PDO handles the database connection, PHP attributes describe your entities, and Sumire provides a focused persistence and repository layer on top.
+
+## Installation
+
+```bash
+composer require wind111-lang/sumire
+```
+
+## Requirements
+
+- PHP 8.2+
+- `ext-pdo`
+- One PDO driver for your database:
+  - SQLite: `pdo_sqlite`
+  - MySQL: `pdo_mysql`
+  - PostgreSQL: `pdo_pgsql`
+
+## Quick Start
+
+The following example uses an in-memory SQLite database, so it can be run as a single PHP script.
 
 ```php
+<?php
+
+declare(strict_types=1);
+
+require __DIR__ . '/vendor/autoload.php';
+
+use Sumire\Attributes\Column;
+use Sumire\Attributes\Id;
+use Sumire\Attributes\Table;
 use Sumire\Database;
 
-$database = Database::connect(new PDO('sqlite::memory:'));
+#[Table('users')]
+final class User
+{
+    #[Id]
+    private ?int $id = null;
+
+    #[Column]
+    private string $name;
+
+    #[Column]
+    private string $email;
+
+    #[Column]
+    private bool $active = true;
+
+    public function __construct(string $name, string $email)
+    {
+        $this->name = $name;
+        $this->email = $email;
+    }
+
+    public function id(): ?int
+    {
+        return $this->id;
+    }
+
+    public function name(): string
+    {
+        return $this->name;
+    }
+
+    public function deactivate(): void
+    {
+        $this->active = false;
+    }
+}
+
+$pdo = new PDO('sqlite::memory:');
+$pdo->exec(<<<'SQL'
+    CREATE TABLE users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        email TEXT NOT NULL UNIQUE,
+        active INTEGER NOT NULL
+    )
+    SQL);
+
+$database = Database::connect($pdo);
+
+// Insert a new entity. The generated ID is written back to $user.
+$user = new User('Ada Lovelace', 'ada@example.com');
 $database->persist($user);
 
-$found = $database->repository(User::class)->find(1);
+$users = $database->repository(User::class);
+
+// Find one entity by its primary key.
+$found = $users->find($user->id());
+
+// Query by mapped properties and order the results.
+$activeUsers = $users->findBy(
+    criteria: ['active' => true],
+    orderBy: ['name' => 'ASC'],
+);
+
+// Saving an entity with an ID performs an update.
+$user->deactivate();
+$users->save($user);
+```
+
+Sumire maps existing tables; schema creation and migrations remain the application's responsibility. The `CREATE TABLE` statement above is included only to make the example immediately runnable.
+
+## More Queries
+
+Repositories provide common lookups, criteria operators, counts, existence checks, and pagination.
+
+```php
+$matchingUsers = $users->findBy([
+    'id >' => 0,
+    'email LIKE' => '%@example.com',
+]);
+
+$emailTaken = $users->exists(['email' => 'ada@example.com']);
+$activeCount = $users->count(['active' => true]);
+
+$page = $users->paginate(
+    criteria: ['active' => true],
+    orderBy: ['name' => 'ASC'],
+    limit: 20,
+    offset: 0,
+);
+
+$items = $page->items;
+$total = $page->total;
+```
+
+Use `Database::transaction()` when several writes must succeed or fail together.
+
+```php
+$database->transaction(function (Database $database): void {
+    $database->persist(new User('Grace Hopper', 'grace@example.com'));
+    $database->persist(new User('Katherine Johnson', 'katherine@example.com'));
+});
 ```
 
 ## Documentation
@@ -28,21 +154,6 @@ The main documentation lives in the GitHub Wiki:
 - [Development](https://github.com/wind111-lang/sumire/wiki/Development)
 
 The Wiki source is mirrored in [`docs/wiki`](docs/wiki) so changes can be reviewed through pull requests.
-
-## Installation
-
-```bash
-composer require wind111-lang/sumire
-```
-
-## Requirements
-
-- PHP 8.2+
-- `ext-pdo`
-- One PDO driver for your database:
-  - SQLite: `pdo_sqlite`
-  - MySQL: `pdo_mysql`
-  - PostgreSQL: `pdo_pgsql`
 
 ## Development
 
