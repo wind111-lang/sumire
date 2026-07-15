@@ -58,6 +58,26 @@ $users = $database->repository(User::class);
 $activeUsers = $users->findBy(['active' => true]);
 ```
 
+## `createTable()`
+
+```php
+public function createTable(string $entityClass, bool $ifNotExists = false): void
+```
+
+Creates a table from mapped entity metadata.
+
+```php
+$database->createTable(User::class);
+```
+
+By default, the database reports an error if the table already exists. Set `ifNotExists` explicitly when repeated setup should be allowed.
+
+```php
+$database->createTable(User::class, ifNotExists: true);
+```
+
+See [Schema](Schema) for inferred SQL types and current limitations.
+
 ## `find()`
 
 ```php

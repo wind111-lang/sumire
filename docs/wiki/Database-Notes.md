@@ -2,6 +2,8 @@
 
 Sumire supports SQLite, MySQL, and PostgreSQL through PDO.
 
+`Database::createTable()` generates the driver-specific forms shown below from entity metadata. Applications can still manage tables with PDO or a dedicated migration tool.
+
 ## SQLite
 
 Use `pdo_sqlite`.

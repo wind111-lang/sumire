@@ -72,7 +72,7 @@ public function __construct(?string $name = null, bool $nullable = false, ?Colum
 | --- | --- | --- | --- |
 | `$name` | `?string` | `null` | Column name. If omitted, the property name is converted to snake case. |
 | `$nullable` | `bool` | `false` | Documents whether the column can be null. |
-| `$type` | `?ColumnType` | `null` | Optional conversion type for values such as JSON. |
+| `$type` | `?ColumnType` | `null` | Optional conversion and schema type for values such as JSON. |
 
 ## Naming Defaults
 
@@ -138,6 +138,8 @@ private array $metadata;
 ```
 
 Criteria values and entity values both use the same conversion rules, so backed enums and DateTime objects can be passed directly to `findBy()`.
+
+The same declared property types are used by `Database::createTable()` to infer database column types. See [Schema](Schema) for the driver-specific mappings.
 
 ## Mapping Rules
 

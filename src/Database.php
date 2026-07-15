@@ -10,16 +10,20 @@ use Sumire\Exception\SumireException;
 use Sumire\Mapping\EntityMetadata;
 use Sumire\Mapping\MetadataFactory;
 use Sumire\Mapping\PropertyMapping;
+use Sumire\Schema\SchemaManager;
 
 final class Database
 {
     private MetadataFactory $metadataFactory;
+
+    private SchemaManager $schemaManager;
 
     public function __construct(
         private readonly Connection $connection,
         ?MetadataFactory $metadataFactory = null,
     ) {
         $this->metadataFactory = $metadataFactory ?? new MetadataFactory();
+        $this->schemaManager = new SchemaManager($this->connection, $this->metadataFactory);
     }
 
     public static function connect(PDO $pdo, ?MetadataFactory $metadataFactory = null): self
@@ -30,6 +34,12 @@ final class Database
     public function connection(): Connection
     {
         return $this->connection;
+    }
+
+    /** @param class-string $entityClass */
+    public function createTable(string $entityClass, bool $ifNotExists = false): void
+    {
+        $this->schemaManager->createTable($entityClass, $ifNotExists);
     }
 
     /**
