@@ -51,6 +51,7 @@ final class User
 }
 
 $database = Database::connect(new PDO('sqlite::memory:'));
+$database->createTable(User::class);
 
 $user = new User('Ada Lovelace', 'ada@example.com');
 $database->persist($user);
@@ -62,6 +63,7 @@ $found = $database->repository(User::class)->find(1);
 
 - [Getting Started](Getting-Started)
 - [Entity Mapping](Entity-Mapping)
+- [Schema](Schema)
 - [Database API](Database-API)
 - [Repository API](Repository-API)
 - [Connection API](Connection-API)

@@ -72,17 +72,8 @@ final class User
     }
 }
 
-$pdo = new PDO('sqlite::memory:');
-$pdo->exec(<<<'SQL'
-    CREATE TABLE users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        email TEXT NOT NULL UNIQUE,
-        active INTEGER NOT NULL
-    )
-    SQL);
-
-$database = Database::connect($pdo);
+$database = Database::connect(new PDO('sqlite::memory:'));
+$database->createTable(User::class);
 
 // Insert a new entity. The generated ID is written back to $user.
 $user = new User('Ada Lovelace', 'ada@example.com');
@@ -104,7 +95,7 @@ $user->deactivate();
 $users->save($user);
 ```
 
-Sumire maps existing tables; schema creation and migrations remain the application's responsibility. The `CREATE TABLE` statement above is included only to make the example immediately runnable.
+`createTable()` infers a basic table from mapped PHP types. It is useful for examples, tests, and small applications. Use a migration tool when a production schema needs indexes, unique constraints, foreign keys, defaults, or versioned changes.
 
 ## More Queries
 
@@ -146,6 +137,7 @@ The main documentation lives in the GitHub Wiki:
 - [Overview](https://github.com/wind111-lang/sumire/wiki)
 - [Getting Started](https://github.com/wind111-lang/sumire/wiki/Getting-Started)
 - [Entity Mapping](https://github.com/wind111-lang/sumire/wiki/Entity-Mapping)
+- [Schema](https://github.com/wind111-lang/sumire/wiki/Schema)
 - [Database API](https://github.com/wind111-lang/sumire/wiki/Database-API)
 - [Repository API](https://github.com/wind111-lang/sumire/wiki/Repository-API)
 - [Connection API](https://github.com/wind111-lang/sumire/wiki/Connection-API)
