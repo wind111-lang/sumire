@@ -6,13 +6,11 @@
 use Sumire\Attributes\Column;
 use Sumire\Attributes\Id;
 use Sumire\Attributes\Table;
-use Sumire\Mapping\MapsDomainModels;
+use Sumire\Mapping\DomainMapper;
 
 #[Table('users')]
 final class User
 {
-    use MapsDomainModels;
-
     #[Id]
     private ?int $id = null;
 
@@ -73,18 +71,18 @@ final readonly class DomainUser
 
 $domainUser = new DomainUser('Ada Lovelace', 'ada@example.com', true);
 
-$entity = User::fromDomain(
-    $domainUser,
-    static fn(DomainUser $user): User => new User($user->name, $user->email, $user->active),
+$mapper = DomainMapper::between(
+    entityClass: User::class,
+    domainClass: DomainUser::class,
+    fromDomain: static fn(DomainUser $user): User => new User($user->name, $user->email, $user->active),
+    toDomain: static fn(User $user): DomainUser => new DomainUser($user->name(), $user->email(), $user->active()),
 );
 
-$mappedDomainUser = User::toDomain(
-    $entity,
-    static fn(User $user): DomainUser => new DomainUser($user->name(), $user->email(), $user->active()),
-);
+$entity = $mapper->fromDomain($domainUser);
+$mappedDomainUser = $mapper->toDomain($entity);
 ```
 
-The domain model does not need Sumire attributes. `fromDomain()` validates that its mapper returns the mapped class, while `toDomain()` validates the mapped input and requires an object result.
+The domain model does not need Sumire attributes. `DomainMapper` validates both input types and both mapper return types.
 
 ## SQLite Setup
 

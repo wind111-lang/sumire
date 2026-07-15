@@ -34,13 +34,11 @@ use Sumire\Attributes\Column;
 use Sumire\Attributes\Id;
 use Sumire\Attributes\Table;
 use Sumire\Database;
-use Sumire\Mapping\MapsDomainModels;
+use Sumire\Mapping\DomainMapper;
 
 #[Table('users')]
 final class User
 {
-    use MapsDomainModels;
-
     #[Id]
     private ?int $id = null;
 
@@ -122,7 +120,7 @@ Sumire maps existing tables; schema creation and migrations remain the applicati
 
 ## Domain Model Conversion
 
-A mapped class can use `MapsDomainModels` to keep persistence attributes out of the domain model. The conversion remains explicit in the supplied callable.
+`DomainMapper` binds a mapped class, a domain class, and both conversion callables. The mapper can then be reused without adding Sumire methods to either model.
 
 ```php
 final readonly class DomainUser
@@ -136,15 +134,15 @@ final readonly class DomainUser
 
 $domainUser = new DomainUser('Grace Hopper', 'grace@example.com', true);
 
-$entity = User::fromDomain(
-    $domainUser,
-    static fn(DomainUser $user): User => new User($user->name, $user->email, $user->active),
+$mapper = DomainMapper::between(
+    entityClass: User::class,
+    domainClass: DomainUser::class,
+    fromDomain: static fn(DomainUser $user): User => new User($user->name, $user->email, $user->active),
+    toDomain: static fn(User $user): DomainUser => new DomainUser($user->name(), $user->email(), $user->active()),
 );
 
-$mappedDomainUser = User::toDomain(
-    $entity,
-    static fn(User $user): DomainUser => new DomainUser($user->name(), $user->email(), $user->active()),
-);
+$entity = $mapper->fromDomain($domainUser);
+$mappedDomainUser = $mapper->toDomain($entity);
 ```
 
 ## More Queries

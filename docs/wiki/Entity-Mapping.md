@@ -141,19 +141,17 @@ Criteria values and entity values both use the same conversion rules, so backed 
 
 ## Domain Model Conversion
 
-Use `MapsDomainModels` when the mapped persistence class and domain model should remain separate.
+Use `DomainMapper` when the mapped persistence class and domain model should remain separate.
 
 ```php
 use Sumire\Attributes\Column;
 use Sumire\Attributes\Id;
 use Sumire\Attributes\Table;
-use Sumire\Mapping\MapsDomainModels;
+use Sumire\Mapping\DomainMapper;
 
 #[Table('users')]
 final class UserRecord
 {
-    use MapsDomainModels;
-
     #[Id]
     private ?int $id = null;
 
@@ -189,15 +187,22 @@ final readonly class DomainUser
 }
 ```
 
+Create the mapper once by binding the persistence class, domain class, and both conversion callables.
+
+```php
+$mapper = DomainMapper::between(
+    entityClass: UserRecord::class,
+    domainClass: DomainUser::class,
+    fromDomain: static fn(DomainUser $user): UserRecord => new UserRecord($user->name, $user->email),
+    toDomain: static fn(UserRecord $record): DomainUser => new DomainUser($record->name(), $record->email()),
+);
+```
+
 Convert a domain model into the mapped class with `fromDomain()`.
 
 ```php
 $domainUser = new DomainUser('Ada Lovelace', 'ada@example.com');
-
-$entity = UserRecord::fromDomain(
-    $domainUser,
-    static fn(DomainUser $user): UserRecord => new UserRecord($user->name, $user->email),
-);
+$entity = $mapper->fromDomain($domainUser);
 
 $database->persist($entity);
 ```
@@ -205,13 +210,10 @@ $database->persist($entity);
 Convert a mapped class back into the domain model with `toDomain()`.
 
 ```php
-$domainUser = UserRecord::toDomain(
-    $entity,
-    static fn(UserRecord $record): DomainUser => new DomainUser($record->name(), $record->email()),
-);
+$domainUser = $mapper->toDomain($entity);
 ```
 
-The conversion callable owns the field mapping. Sumire does not copy properties automatically. `fromDomain()` requires the callable to return the mapped class. `toDomain()` requires an instance of the mapped class and an object result. Invalid mappings throw `MappingException`.
+The conversion callables own the field mapping. Sumire does not copy properties automatically or add methods to either class. PHPStan tracks the mapper as `DomainMapper<UserRecord, DomainUser>`. Runtime input or return-type mismatches throw `MappingException`.
 
 ## Mapping Rules
 

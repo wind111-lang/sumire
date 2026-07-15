@@ -7,13 +7,10 @@ namespace Sumire\Tests\Fixtures;
 use Sumire\Attributes\Column;
 use Sumire\Attributes\Id;
 use Sumire\Attributes\Table;
-use Sumire\Mapping\MapsDomainModels;
 
 #[Table('users')]
 final class User
 {
-    use MapsDomainModels;
-
     #[Id(name: 'id')]
     private ?int $id = null;
 
