@@ -34,10 +34,13 @@ use Sumire\Attributes\Column;
 use Sumire\Attributes\Id;
 use Sumire\Attributes\Table;
 use Sumire\Database;
+use Sumire\Mapping\MapsDomainModels;
 
 #[Table('users')]
 final class User
 {
+    use MapsDomainModels;
+
     #[Id]
     private ?int $id = null;
 
@@ -50,10 +53,11 @@ final class User
     #[Column]
     private bool $active = true;
 
-    public function __construct(string $name, string $email)
+    public function __construct(string $name, string $email, bool $active = true)
     {
         $this->name = $name;
         $this->email = $email;
+        $this->active = $active;
     }
 
     public function id(): ?int
@@ -64,6 +68,16 @@ final class User
     public function name(): string
     {
         return $this->name;
+    }
+
+    public function email(): string
+    {
+        return $this->email;
+    }
+
+    public function active(): bool
+    {
+        return $this->active;
     }
 
     public function deactivate(): void
@@ -105,6 +119,33 @@ $users->save($user);
 ```
 
 Sumire maps existing tables; schema creation and migrations remain the application's responsibility. The `CREATE TABLE` statement above is included only to make the example immediately runnable.
+
+## Domain Model Conversion
+
+A mapped class can use `MapsDomainModels` to keep persistence attributes out of the domain model. The conversion remains explicit in the supplied callable.
+
+```php
+final readonly class DomainUser
+{
+    public function __construct(
+        public string $name,
+        public string $email,
+        public bool $active,
+    ) {}
+}
+
+$domainUser = new DomainUser('Grace Hopper', 'grace@example.com', true);
+
+$entity = User::fromDomain(
+    $domainUser,
+    static fn(DomainUser $user): User => new User($user->name, $user->email, $user->active),
+);
+
+$mappedDomainUser = User::toDomain(
+    $entity,
+    static fn(User $user): DomainUser => new DomainUser($user->name(), $user->email(), $user->active()),
+);
+```
 
 ## More Queries
 

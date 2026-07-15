@@ -139,6 +139,80 @@ private array $metadata;
 
 Criteria values and entity values both use the same conversion rules, so backed enums and DateTime objects can be passed directly to `findBy()`.
 
+## Domain Model Conversion
+
+Use `MapsDomainModels` when the mapped persistence class and domain model should remain separate.
+
+```php
+use Sumire\Attributes\Column;
+use Sumire\Attributes\Id;
+use Sumire\Attributes\Table;
+use Sumire\Mapping\MapsDomainModels;
+
+#[Table('users')]
+final class UserRecord
+{
+    use MapsDomainModels;
+
+    #[Id]
+    private ?int $id = null;
+
+    #[Column]
+    private string $name;
+
+    #[Column]
+    private string $email;
+
+    public function __construct(string $name, string $email)
+    {
+        $this->name = $name;
+        $this->email = $email;
+    }
+
+    public function name(): string
+    {
+        return $this->name;
+    }
+
+    public function email(): string
+    {
+        return $this->email;
+    }
+}
+
+final readonly class DomainUser
+{
+    public function __construct(
+        public string $name,
+        public string $email,
+    ) {}
+}
+```
+
+Convert a domain model into the mapped class with `fromDomain()`.
+
+```php
+$domainUser = new DomainUser('Ada Lovelace', 'ada@example.com');
+
+$entity = UserRecord::fromDomain(
+    $domainUser,
+    static fn(DomainUser $user): UserRecord => new UserRecord($user->name, $user->email),
+);
+
+$database->persist($entity);
+```
+
+Convert a mapped class back into the domain model with `toDomain()`.
+
+```php
+$domainUser = UserRecord::toDomain(
+    $entity,
+    static fn(UserRecord $record): DomainUser => new DomainUser($record->name(), $record->email()),
+);
+```
+
+The conversion callable owns the field mapping. Sumire does not copy properties automatically. `fromDomain()` requires the callable to return the mapped class. `toDomain()` requires an instance of the mapped class and an object result. Invalid mappings throw `MappingException`.
+
 ## Mapping Rules
 
 - An entity must define at least one mapped property.
