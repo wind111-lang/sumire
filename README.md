@@ -34,6 +34,7 @@ use Sumire\Attributes\Column;
 use Sumire\Attributes\Id;
 use Sumire\Attributes\Table;
 use Sumire\Database;
+use Sumire\Mapping\DomainMapper;
 
 #[Table('users')]
 final class User
@@ -50,10 +51,11 @@ final class User
     #[Column]
     private bool $active = true;
 
-    public function __construct(string $name, string $email)
+    public function __construct(string $name, string $email, bool $active = true)
     {
         $this->name = $name;
         $this->email = $email;
+        $this->active = $active;
     }
 
     public function id(): ?int
@@ -64,6 +66,16 @@ final class User
     public function name(): string
     {
         return $this->name;
+    }
+
+    public function email(): string
+    {
+        return $this->email;
+    }
+
+    public function active(): bool
+    {
+        return $this->active;
     }
 
     public function deactivate(): void
@@ -96,6 +108,33 @@ $users->save($user);
 ```
 
 `createTable()` infers a basic table from mapped PHP types. It is useful for examples, tests, and small applications. Use a migration tool when a production schema needs indexes, unique constraints, foreign keys, defaults, or versioned changes.
+
+## Domain Model Conversion
+
+`DomainMapper` binds a mapped class, a domain class, and both conversion callables. The mapper can then be reused without adding Sumire methods to either model.
+
+```php
+final readonly class DomainUser
+{
+    public function __construct(
+        public string $name,
+        public string $email,
+        public bool $active,
+    ) {}
+}
+
+$domainUser = new DomainUser('Grace Hopper', 'grace@example.com', true);
+
+$mapper = DomainMapper::between(
+    entityClass: User::class,
+    domainClass: DomainUser::class,
+    fromDomain: static fn(DomainUser $user): User => new User($user->name, $user->email, $user->active),
+    toDomain: static fn(User $user): DomainUser => new DomainUser($user->name(), $user->email(), $user->active()),
+);
+
+$entity = $mapper->fromDomain($domainUser);
+$mappedDomainUser = $mapper->toDomain($entity);
+```
 
 ## More Queries
 

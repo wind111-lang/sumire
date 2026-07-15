@@ -141,6 +141,82 @@ Criteria values and entity values both use the same conversion rules, so backed 
 
 The same declared property types are used by `Database::createTable()` to infer database column types. See [Schema](Schema) for the driver-specific mappings.
 
+## Domain Model Conversion
+
+Use `DomainMapper` when the mapped persistence class and domain model should remain separate.
+
+```php
+use Sumire\Attributes\Column;
+use Sumire\Attributes\Id;
+use Sumire\Attributes\Table;
+use Sumire\Mapping\DomainMapper;
+
+#[Table('users')]
+final class UserRecord
+{
+    #[Id]
+    private ?int $id = null;
+
+    #[Column]
+    private string $name;
+
+    #[Column]
+    private string $email;
+
+    public function __construct(string $name, string $email)
+    {
+        $this->name = $name;
+        $this->email = $email;
+    }
+
+    public function name(): string
+    {
+        return $this->name;
+    }
+
+    public function email(): string
+    {
+        return $this->email;
+    }
+}
+
+final readonly class DomainUser
+{
+    public function __construct(
+        public string $name,
+        public string $email,
+    ) {}
+}
+```
+
+Create the mapper once by binding the persistence class, domain class, and both conversion callables.
+
+```php
+$mapper = DomainMapper::between(
+    entityClass: UserRecord::class,
+    domainClass: DomainUser::class,
+    fromDomain: static fn(DomainUser $user): UserRecord => new UserRecord($user->name, $user->email),
+    toDomain: static fn(UserRecord $record): DomainUser => new DomainUser($record->name(), $record->email()),
+);
+```
+
+Convert a domain model into the mapped class with `fromDomain()`.
+
+```php
+$domainUser = new DomainUser('Ada Lovelace', 'ada@example.com');
+$entity = $mapper->fromDomain($domainUser);
+
+$database->persist($entity);
+```
+
+Convert a mapped class back into the domain model with `toDomain()`.
+
+```php
+$domainUser = $mapper->toDomain($entity);
+```
+
+The conversion callables own the field mapping. Sumire does not copy properties automatically or add methods to either class. PHPStan tracks the mapper as `DomainMapper<UserRecord, DomainUser>`. Runtime input or return-type mismatches throw `MappingException`.
+
 ## Mapping Rules
 
 - An entity must define at least one mapped property.
