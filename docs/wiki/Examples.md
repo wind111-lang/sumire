@@ -90,15 +90,7 @@ The domain model does not need Sumire attributes. `DomainMapper` validates both 
 use Sumire\Database;
 
 $database = Database::connect(new PDO('sqlite:' . __DIR__ . '/database.sqlite'));
-
-$database->connection()->execute(<<<'SQL'
-CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    email TEXT NOT NULL,
-    active INTEGER NOT NULL
-)
-SQL);
+$database->createTable(User::class, ifNotExists: true);
 ```
 
 ## Insert and Read

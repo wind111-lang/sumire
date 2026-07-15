@@ -21,26 +21,8 @@ final class DatabaseTest extends TestCase
     protected function setUp(): void
     {
         $this->database = Database::connect(new PDO('sqlite::memory:'));
-        $connection = $this->database->connection();
-
-        $connection->execute(<<<'SQL'
-            CREATE TABLE users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                email TEXT NOT NULL,
-                active INTEGER NOT NULL
-            )
-            SQL);
-
-        $connection->execute(<<<'SQL'
-            CREATE TABLE posts (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                title TEXT NOT NULL,
-                status TEXT NOT NULL,
-                metadata TEXT NOT NULL,
-                created_at TEXT NOT NULL
-            )
-            SQL);
+        $this->database->createTable(User::class);
+        $this->database->createTable(Post::class);
     }
 
     public function testPersistsFindsUpdatesAndRemovesEntity(): void

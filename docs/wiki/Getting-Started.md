@@ -65,18 +65,13 @@ final class User
 
 ## Create the Table
 
-Sumire does not run migrations. Create tables with your own migration tool or with PDO directly.
+Create a basic table from the entity metadata.
 
 ```php
-$database->connection()->execute(<<<'SQL'
-CREATE TABLE users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    email TEXT NOT NULL,
-    active INTEGER NOT NULL
-)
-SQL);
+$database->createTable(User::class);
 ```
+
+`createTable()` is intended for examples, tests, and simple schema setup. Use a migration tool for production schema changes, indexes, unique constraints, foreign keys, and defaults.
 
 ## Persist and Read Data
 
@@ -103,5 +98,6 @@ $firstAda = $users->firstBy(['name' => 'Ada Lovelace']);
 ## Next Steps
 
 - [Entity Mapping](Entity-Mapping)
+- [Schema](Schema)
 - [Database API](Database-API)
 - [Examples](Examples)
